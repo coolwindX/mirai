@@ -9,19 +9,25 @@
 
 @file:Suppress("unused", "DEPRECATION_ERROR", "EXPOSED_SUPER_CLASS", "MemberVisibilityCanBePrivate")
 
+@file:JvmMultifileClass
+@file:JvmName("Utils")
+
+
 package net.mamoe.mirai.utils
 
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.serialization.json.Json
 import net.mamoe.mirai.Bot
+import net.mamoe.mirai.BotFactory
+import net.mamoe.mirai.event.events.BotOfflineEvent
 import java.io.File
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.coroutines.coroutineContext
 
 /**
- * [Bot] 配置.
+ * [Bot] 配置. 用于 [BotFactory.newBot]
  *
  * Kotlin 使用方法:
  * ```
@@ -96,6 +102,15 @@ public open class BotConfiguration { // open for Java
     public var reconnectionRetryTimes: Int = Int.MAX_VALUE
 
     /**
+     * 在被挤下线时 ([BotOfflineEvent.Force]) 自动重连. 默认为 `false`.
+     *
+     * 其他情况掉线都默认会自动重连, 详见 [BotOfflineEvent.reconnect]
+     *
+     * @since 2.1
+     */
+    public var autoReconnectOnForceOffline: Boolean = false
+
+    /**
      * 验证码处理器
      *
      * - 在 Android 需要手动提供 [LoginSolver]
@@ -109,6 +124,16 @@ public open class BotConfiguration { // open for Java
 
     /** 使用协议类型 */
     public var protocol: MiraiProtocol = MiraiProtocol.ANDROID_PHONE
+
+    /**
+     * Highway 通道上传图片, 语音, 文件等资源时的协程数量.
+     *
+     * 每个协程的速度约为 200KB/s. 协程数量越多越快, 同时也更要求性能.
+     * 默认 [CPU 核心数][Runtime.availableProcessors].
+     *
+     * @since 2.2
+     */
+    public var highwayUploadCoroutineCount: Int = Runtime.getRuntime().availableProcessors()
 
     /**
      * 设备信息覆盖. 在没有手动指定时将会通过日志警告, 并使用随机设备信息.
@@ -128,6 +153,15 @@ public open class BotConfiguration { // open for Java
             prettyPrint = true
         }
     }.getOrElse { Json {} }
+
+    /**
+     * 设置 [autoReconnectOnForceOffline] 为 `true`, 即在被挤下线时自动重连.
+     * @since 2.1
+     */
+    @ConfigurationDsl
+    public fun autoReconnectOnForceOffline() {
+        autoReconnectOnForceOffline = true
+    }
 
     /**
      * 使用随机设备信息.
@@ -358,10 +392,19 @@ public open class BotConfiguration { // open for Java
     public annotation class ConfigurationDsl
 }
 
+/**
+ * 构建一个 [BotConfiguration].
+ *
+ * @see BotConfiguration
+ * @since 2.3
+ */
+@JvmSynthetic
+public inline fun BotConfiguration(block: BotConfiguration.() -> Unit): BotConfiguration {
+    return BotConfiguration().apply(block)
+}
+
 internal val deviceInfoStub: (Bot) -> DeviceInfo = {
-    @Suppress("DEPRECATION")
     MiraiLogger.TopLevel.warning("未指定设备信息, 已使用随机设备信息. 请查看 BotConfiguration.deviceInfo 以获取更多信息.")
-    @Suppress("DEPRECATION")
     MiraiLogger.TopLevel.warning("Device info isn't specified. Please refer to BotConfiguration.deviceInfo for more information")
     DeviceInfo.random()
 }

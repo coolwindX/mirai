@@ -14,12 +14,23 @@ import kotlinx.io.core.BytePacketBuilder
 import kotlinx.io.core.ByteReadPacket
 import kotlinx.io.core.buildPacket
 import kotlinx.io.core.writeFully
+import net.mamoe.mirai.internal.QQAndroidBot
+import net.mamoe.mirai.internal.network.Packet
+import net.mamoe.mirai.internal.network.QQAndroidBotNetworkHandler
 import net.mamoe.mirai.internal.network.QQAndroidClient
 import net.mamoe.mirai.internal.utils.io.encryptAndWrite
 import net.mamoe.mirai.internal.utils.io.writeHex
 import net.mamoe.mirai.internal.utils.io.writeIntLVPacket
 
-internal class OutgoingPacket constructor(
+@kotlin.Suppress("unused")
+internal class OutgoingPacketWithRespType<R : Packet?> constructor(
+    name: String?,
+    commandName: String,
+    sequenceId: Int,
+    delegate: ByteReadPacket
+) : OutgoingPacket(name, commandName, sequenceId, delegate)
+
+internal open class OutgoingPacket constructor(
     name: String?,
     val commandName: String,
     val sequenceId: Int,
@@ -28,11 +39,48 @@ internal class OutgoingPacket constructor(
     val name: String = name ?: commandName
 }
 
+internal suspend inline fun <E : Packet> OutgoingPacketWithRespType<E>.sendAndExpect(
+    network: QQAndroidBotNetworkHandler,
+    timeoutMillis: Long = 5000,
+    retry: Int = 2
+): E = network.run {
+    return (this@sendAndExpect as OutgoingPacket).sendAndExpect(timeoutMillis, retry)
+}
+
+@Suppress("INVISIBLE_MEMBER", "INVISIBLE_REFERENCE")
+@kotlin.internal.LowPriorityInOverloadResolution
+internal suspend inline fun <E : Packet> OutgoingPacket.sendAndExpect(
+    network: QQAndroidBotNetworkHandler,
+    timeoutMillis: Long = 5000,
+    retry: Int = 2
+): E = network.run {
+    return this@sendAndExpect.sendAndExpect(timeoutMillis, retry)
+}
+
+internal suspend inline fun <E : Packet> OutgoingPacketWithRespType<E>.sendAndExpect(
+    bot: QQAndroidBot,
+    timeoutMillis: Long = 5000,
+    retry: Int = 2
+): E = bot.network.run {
+    return (this@sendAndExpect as OutgoingPacket).sendAndExpect(timeoutMillis, retry)
+}
+
+@Suppress("INVISIBLE_MEMBER", "INVISIBLE_REFERENCE")
+@kotlin.internal.LowPriorityInOverloadResolution
+internal suspend inline fun <E : Packet> OutgoingPacket.sendAndExpect(
+    bot: QQAndroidBot,
+    timeoutMillis: Long = 5000,
+    retry: Int = 2
+): E = bot.network.run {
+    return this@sendAndExpect.sendAndExpect(timeoutMillis, retry)
+}
+
+
 internal val KEY_16_ZEROS = ByteArray(16)
 internal val EMPTY_BYTE_ARRAY = ByteArray(0)
 
 @Suppress("DuplicatedCode")
-internal inline fun OutgoingPacketFactory<*>.buildOutgoingUniPacket(
+internal inline fun <R : Packet?> OutgoingPacketFactory<R>.buildOutgoingUniPacket(
     client: QQAndroidClient,
     bodyType: Byte = 1, // 1: PB?
     name: String? = this.commandName,
@@ -41,9 +89,9 @@ internal inline fun OutgoingPacketFactory<*>.buildOutgoingUniPacket(
     extraData: ByteReadPacket = BRP_STUB,
     sequenceId: Int = client.nextSsoSequenceId(),
     body: BytePacketBuilder.(sequenceId: Int) -> Unit
-): OutgoingPacket {
+): OutgoingPacketWithRespType<R> {
 
-    return OutgoingPacket(name, commandName, sequenceId, buildPacket {
+    return OutgoingPacketWithRespType(name, commandName, sequenceId, buildPacket {
         writeIntLVPacket(lengthOffset = { it + 4 }) {
             writeInt(0x0B)
             writeByte(bodyType)
@@ -63,7 +111,7 @@ internal inline fun OutgoingPacketFactory<*>.buildOutgoingUniPacket(
 }
 
 
-internal inline fun IncomingPacketFactory<*>.buildResponseUniPacket(
+internal inline fun <R : Packet?> IncomingPacketFactory<R>.buildResponseUniPacket(
     client: QQAndroidClient,
     bodyType: Byte = 1, // 1: PB?
     name: String? = this.responseCommandName,
@@ -72,9 +120,9 @@ internal inline fun IncomingPacketFactory<*>.buildResponseUniPacket(
     extraData: ByteReadPacket = BRP_STUB,
     sequenceId: Int = client.nextSsoSequenceId(),
     body: BytePacketBuilder.(sequenceId: Int) -> Unit
-): OutgoingPacket {
+): OutgoingPacketWithRespType<R> {
     @Suppress("DuplicatedCode")
-    return OutgoingPacket(name, commandName, sequenceId, buildPacket {
+    return OutgoingPacketWithRespType(name, commandName, sequenceId, buildPacket {
         writeIntLVPacket(lengthOffset = { it + 4 }) {
             writeInt(0x0B)
             writeByte(bodyType)
@@ -126,7 +174,7 @@ internal val NO_ENCRYPT: ByteArray = ByteArray(0)
 /**
  * com.tencent.qphone.base.util.CodecWarpper#encodeRequest(int, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, byte[], int, int, java.lang.String, byte, byte, byte, byte[], byte[], boolean)
  */
-internal inline fun OutgoingPacketFactory<*>.buildLoginOutgoingPacket(
+internal inline fun <R : Packet?> OutgoingPacketFactory<R>.buildLoginOutgoingPacket(
     client: QQAndroidClient,
     bodyType: Byte,
     extraData: ByteArray = EMPTY_BYTE_ARRAY,
@@ -134,10 +182,10 @@ internal inline fun OutgoingPacketFactory<*>.buildLoginOutgoingPacket(
     commandName: String = this.commandName,
     key: ByteArray = KEY_16_ZEROS,
     body: BytePacketBuilder.(sequenceId: Int) -> Unit
-): OutgoingPacket {
+): OutgoingPacketWithRespType<R> {
     val sequenceId: Int = client.nextSsoSequenceId()
 
-    return OutgoingPacket(name, commandName, sequenceId, buildPacket {
+    return OutgoingPacketWithRespType(name, commandName, sequenceId, buildPacket {
         writeIntLVPacket(lengthOffset = { it + 4 }) {
             writeInt(0x00_00_00_0A)
             writeByte(bodyType)

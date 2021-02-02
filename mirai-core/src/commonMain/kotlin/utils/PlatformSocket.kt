@@ -12,11 +12,11 @@ package net.mamoe.mirai.internal.utils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
 import kotlinx.io.core.ByteReadPacket
 import kotlinx.io.core.Closeable
 import kotlinx.io.streams.readPacketAtMost
 import kotlinx.io.streams.writePacket
+import net.mamoe.mirai.utils.withUse
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.IOException
@@ -24,6 +24,8 @@ import java.net.NoRouteToHostException
 import java.net.Socket
 import java.net.UnknownHostException
 import java.util.concurrent.Executors
+import kotlin.contracts.InvocationKind
+import kotlin.contracts.contract
 
 /**
  * TCP Socket.
@@ -42,6 +44,8 @@ internal class PlatformSocket : Closeable {
             socket.close()
         }
         thread.shutdownNow()
+        kotlin.runCatching { writeChannel.close() }
+        kotlin.runCatching { readChannel.close() }
     }
 
     @PublishedApi
@@ -51,7 +55,6 @@ internal class PlatformSocket : Closeable {
     internal lateinit var readChannel: BufferedInputStream
 
     suspend fun send(packet: ByteArray, offset: Int, length: Int) {
-        @Suppress("BlockingMethodInNonBlockingContext")
         runInterruptible(Dispatchers.IO) {
             writeChannel.write(packet, offset, length)
             writeChannel.flush()
@@ -62,7 +65,6 @@ internal class PlatformSocket : Closeable {
      * @throws SendPacketInternalException
      */
     suspend fun send(packet: ByteReadPacket) {
-        @Suppress("BlockingMethodInNonBlockingContext")
         runInterruptible(Dispatchers.IO) {
             try {
                 writeChannel.writePacket(packet)
@@ -79,21 +81,43 @@ internal class PlatformSocket : Closeable {
      * @throws ReadPacketInternalException
      */
     suspend fun read(): ByteReadPacket = suspendCancellableCoroutine { cont ->
-        thread.submit {
+        val task = thread.submit {
             kotlin.runCatching {
                 readChannel.readPacketAtMost(Long.MAX_VALUE)
             }.let {
                 cont.resumeWith(it)
             }
         }
+        cont.invokeOnCancellation {
+            kotlin.runCatching { task.cancel(true) }
+        }
     }
 
     suspend fun connect(serverHost: String, serverPort: Int) {
-        @Suppress("BlockingMethodInNonBlockingContext")
-        withContext(Dispatchers.IO) {
+        runInterruptible(Dispatchers.IO) {
             socket = Socket(serverHost, serverPort)
             readChannel = socket.getInputStream().buffered()
             writeChannel = socket.getOutputStream().buffered()
+        }
+    }
+
+    companion object {
+        suspend fun connect(
+            serverIp: String,
+            serverPort: Int,
+        ): PlatformSocket {
+            val socket = PlatformSocket()
+            socket.connect(serverIp, serverPort)
+            return socket
+        }
+
+        suspend inline fun <R> withConnection(
+            serverIp: String,
+            serverPort: Int,
+            block: PlatformSocket.() -> R
+        ): R {
+            contract { callsInPlace(block, InvocationKind.EXACTLY_ONCE) }
+            return connect(serverIp, serverPort).withUse(block)
         }
     }
 }

@@ -26,7 +26,6 @@ import net.mamoe.mirai.internal.network.protocol.data.proto.ImMsgBody
 import net.mamoe.mirai.internal.network.protocol.data.proto.MsgComm
 import net.mamoe.mirai.internal.network.protocol.data.proto.MsgCtrl
 import net.mamoe.mirai.internal.network.protocol.data.proto.MsgSvc
-import net.mamoe.mirai.internal.network.protocol.packet.EMPTY_BYTE_ARRAY
 import net.mamoe.mirai.internal.network.protocol.packet.OutgoingPacket
 import net.mamoe.mirai.internal.network.protocol.packet.OutgoingPacketFactory
 import net.mamoe.mirai.internal.network.protocol.packet.buildOutgoingUniPacket
@@ -107,9 +106,13 @@ internal object MessageSvcPbSendMsg : OutgoingPacketFactory<MessageSvcPbSendMsg.
         sequenceIds: AtomicReference<IntArray>,
         sequenceIdsInitializer: (Int) -> IntArray,
         randIds: AtomicReference<IntArray>,
+        doFragmented: Boolean = true,
         postInit: () -> Unit
     ): List<OutgoingPacket> {
-        val fragmented = message.fragmented()
+        val fragmented = if (doFragmented)
+            message.fragmented()
+        else listOf(message)
+
         val response = mutableListOf<OutgoingPacket>()
         val div = if (fragmented.size == 1) 0 else Random.nextInt().absoluteValue
         val pkgNum = fragmented.size
@@ -143,29 +146,55 @@ internal object MessageSvcPbSendMsg : OutgoingPacketFactory<MessageSvcPbSendMsg.
      * 发送陌生人消息
      */
     @Suppress("FunctionName")
-    internal fun createToStrangerImpl(
+    internal inline fun createToStrangerImpl(
         client: QQAndroidClient,
         target: Stranger,
         message: MessageChain,
-        source: OnlineMessageSourceToStrangerImpl
-    ): OutgoingPacket = buildOutgoingUniPacket(client) {
-        ///writeFully("0A 08 0A 06 08 89 FC A6 8C 0B 12 06 08 01 10 00 18 00 1A 1F 0A 1D 12 08 0A 06 0A 04 F0 9F 92 A9 12 11 AA 02 0E 88 01 00 9A 01 08 78 00 F8 01 00 C8 02 00 20 9B 7A 28 F4 CA 9B B8 03 32 34 08 92 C2 C4 F1 05 10 92 C2 C4 F1 05 18 E6 ED B9 C3 02 20 89 FE BE A4 06 28 89 84 F9 A2 06 48 DE 8C EA E5 0E 58 D9 BD BB A0 09 60 1D 68 92 C2 C4 F1 05 70 00 40 01".hexToBytes())
+        fragmented: Boolean,
+        source: (OnlineMessageSourceToStrangerImpl) -> Unit
+    ): List<OutgoingPacket> {
 
-        ///return@buildOutgoingUniPacket
-        writeProtoBuf(
-            MsgSvc.PbSendMsgReq.serializer(), MsgSvc.PbSendMsgReq(
-                routingHead = MsgSvc.RoutingHead(c2c = MsgSvc.C2C(toUin = target.uin)),
-                contentHead = MsgComm.ContentHead(pkgNum = 1),
-                msgBody = ImMsgBody.MsgBody(
+        val sequenceIds = AtomicReference<IntArray>()
+        val randIds = AtomicReference<IntArray>()
+        return buildOutgoingMessageCommon(
+            client = client,
+            message = message,
+            fragmentTranslator = {
+                ImMsgBody.MsgBody(
                     richText = ImMsgBody.RichText(
-                        elems = message.toRichTextElems(messageTarget = target, withGeneralFlags = true)
+                        elems = it.toRichTextElems(messageTarget = target, withGeneralFlags = true)
                     )
-                ),
-                msgSeq = source.sequenceIds.single(),
-                msgRand = source.internalIds.single(),
-                syncCookie = client.syncingController.syncCookie ?: byteArrayOf()
-                // msgVia = 1
-            )
+                )
+            },
+            pbSendMsgReq = { msgBody, msgSeq, msgRand, contentHead ->
+                MsgSvc.PbSendMsgReq(
+                    routingHead = MsgSvc.RoutingHead(c2c = MsgSvc.C2C(toUin = target.uin)),
+                    contentHead = contentHead,
+                    msgBody = msgBody,
+                    msgSeq = msgSeq,
+                    msgRand = msgRand,
+                    syncCookie = client.syncingController.syncCookie ?: byteArrayOf()
+                    // msgVia = 1
+                )
+            },
+            sequenceIds = sequenceIds,
+            randIds = randIds,
+            sequenceIdsInitializer = { size ->
+                IntArray(size) { client.nextFriendSeq() }
+            },
+            postInit = {
+                source(
+                    OnlineMessageSourceToStrangerImpl(
+                        internalIds = randIds.get(),
+                        sender = client.bot,
+                        target = target,
+                        time = currentTimeSeconds().toInt(),
+                        sequenceIds = sequenceIds.get(),
+                        originalMessage = message
+                    )
+                )
+            },
+            doFragmented = fragmented
         )
     }
 
@@ -177,6 +206,7 @@ internal object MessageSvcPbSendMsg : OutgoingPacketFactory<MessageSvcPbSendMsg.
         client: QQAndroidClient,
         targetFriend: Friend,
         message: MessageChain,
+        fragmented: Boolean,
         crossinline sourceCallback: (OnlineMessageSourceToFriendImpl) -> Unit
     ): List<OutgoingPacket> {
         contract {
@@ -222,7 +252,8 @@ internal object MessageSvcPbSendMsg : OutgoingPacketFactory<MessageSvcPbSendMsg.
                         originalMessage = message
                     )
                 )
-            }
+            },
+            doFragmented = fragmented
         )
     }
     /*= buildOutgoingUniPacket(client) {
@@ -266,6 +297,7 @@ internal object MessageSvcPbSendMsg : OutgoingPacketFactory<MessageSvcPbSendMsg.
         client: QQAndroidClient,
         targetMember: Member,
         message: MessageChain,
+        fragmented: Boolean,
         source: OnlineMessageSourceToTempImpl
     ): OutgoingPacket = buildOutgoingUniPacket(client) {
         writeProtoBuf(
@@ -291,13 +323,88 @@ internal object MessageSvcPbSendMsg : OutgoingPacketFactory<MessageSvcPbSendMsg.
      * 发送群消息
      */
     @Suppress("FunctionName")
-    internal fun createToGroupImpl(
+    internal inline fun createToGroupImpl(
         client: QQAndroidClient,
         targetGroup: Group,
         message: MessageChain,
-        isForward: Boolean,
-        source: OnlineMessageSourceToGroupImpl
-    ): OutgoingPacket = buildOutgoingUniPacket(client) {
+        fragmented: Boolean,
+        crossinline sourceCallback: (OnlineMessageSourceToGroupImpl) -> Unit
+    ): List<OutgoingPacket> {
+        val sequenceIds = AtomicReference<IntArray>()
+        val randIds = AtomicReference<IntArray>()
+        return buildOutgoingMessageCommon(
+            client = client,
+            message = message,
+            fragmentTranslator = { subChain ->
+                ImMsgBody.MsgBody(
+                    richText = ImMsgBody.RichText(
+                        elems = subChain.toRichTextElems(messageTarget = targetGroup, withGeneralFlags = true),
+                        ptt = subChain[PttMessage]?.run {
+                            ImMsgBody.Ptt(
+                                fileName = fileName.toByteArray(),
+                                fileMd5 = md5,
+                                boolValid = true,
+                                fileSize = fileSize.toInt(),
+                                fileType = 4,
+                                pbReserve = byteArrayOf(0),
+                                format = let {
+                                    if (it is Voice) {
+                                        it.codec
+                                    } else {
+                                        0
+                                    }
+                                }
+                            )
+                        }
+
+                    )
+                )
+            },
+            pbSendMsgReq = { msgBody, msgSeq, msgRand, contentHead ->
+                MsgSvc.PbSendMsgReq(
+                    routingHead = MsgSvc.RoutingHead(grp = MsgSvc.Grp(groupCode = targetGroup.groupCode)),
+                    contentHead = contentHead,
+                    msgBody = msgBody,
+                    msgSeq = msgSeq,
+                    msgRand = msgRand,
+                    syncCookie = client.syncingController.syncCookie ?: byteArrayOf(),
+                    msgVia = 1,
+                    msgCtrl =
+                    if (message[ForwardMessageInternal] != null)
+                        MsgCtrl.MsgCtrl(msgFlag = 4)
+                    else null
+                )
+            },
+            sequenceIds = sequenceIds,
+            randIds = randIds,
+            sequenceIdsInitializer = { size ->
+                IntArray(size) { client.nextFriendSeq() }
+            },
+            postInit = {
+                randIds.get().forEach { id ->
+                    client.syncingController.pendingGroupMessageReceiptCacheList.addCache(
+                        PendingGroupMessageReceiptSyncId(
+                            messageRandom = id,
+                        )
+                    )
+                }
+                sourceCallback(
+                    OnlineMessageSourceToGroupImpl(
+                        targetGroup,
+                        internalIds = randIds.get(),
+                        sender = client.bot,
+                        target = targetGroup,
+                        time = currentTimeSeconds().toInt(),
+                        originalMessage = message//,
+                        //   sourceMessage = message
+                    )
+                )
+            },
+            doFragmented = fragmented
+        )
+    }
+    /*
+    = buildOutgoingUniPacket(client) {
         ///writeFully("0A 08 0A 06 08 89 FC A6 8C 0B 12 06 08 01 10 00 18 00 1A 1F 0A 1D 12 08 0A 06 0A 04 F0 9F 92 A9 12 11 AA 02 0E 88 01 00 9A 01 08 78 00 F8 01 00 C8 02 00 20 9B 7A 28 F4 CA 9B B8 03 32 34 08 92 C2 C4 F1 05 10 92 C2 C4 F1 05 18 E6 ED B9 C3 02 20 89 FE BE A4 06 28 89 84 F9 A2 06 48 DE 8C EA E5 0E 58 D9 BD BB A0 09 60 1D 68 92 C2 C4 F1 05 70 00 40 01".hexToBytes())
 
         // DebugLogger.debug("sending group message: " + message.toRichTextElems().contentToString())
@@ -333,12 +440,14 @@ internal object MessageSvcPbSendMsg : OutgoingPacketFactory<MessageSvcPbSendMsg.
                 msgRand = source.internalIds.single(),
                 syncCookie = EMPTY_BYTE_ARRAY,
                 msgVia = 1,
-                msgCtrl = if (isForward) MsgCtrl.MsgCtrl(
-                    msgFlag = 4
-                ) else null
+                msgCtrl =
+                if (message[ForwardMessageInternal] != null)
+                    MsgCtrl.MsgCtrl(msgFlag = 4)
+                else null
             )
         )
     }
+     */
 
     override suspend fun ByteReadPacket.decode(bot: QQAndroidBot): Response {
         val response = readProtoBuf(MsgSvc.PbSendMsgResp.serializer())
@@ -359,8 +468,9 @@ internal inline fun MessageSvcPbSendMsg.createToTemp(
     client: QQAndroidClient,
     member: Member,
     message: MessageChain,
+    fragmented: Boolean,
     crossinline sourceCallback: (OnlineMessageSourceToTempImpl) -> Unit
-): OutgoingPacket {
+): List<OutgoingPacket> {
     contract {
         callsInPlace(sourceCallback, InvocationKind.EXACTLY_ONCE)
     }
@@ -377,33 +487,27 @@ internal inline fun MessageSvcPbSendMsg.createToTemp(
         client,
         member,
         message,
+        fragmented,
         source
-    )
+    ).let { listOf(it) }
 }
 
 internal inline fun MessageSvcPbSendMsg.createToStranger(
     client: QQAndroidClient,
     stranger: Stranger,
     message: MessageChain,
+    fragmented: Boolean,
     crossinline sourceCallback: (OnlineMessageSourceToStrangerImpl) -> Unit
-): OutgoingPacket {
+): List<OutgoingPacket> {
     contract {
         callsInPlace(sourceCallback, InvocationKind.EXACTLY_ONCE)
     }
-    val source = OnlineMessageSourceToStrangerImpl(
-        internalIds = intArrayOf(Random.nextInt().absoluteValue),
-        sender = client.bot,
-        target = stranger,
-        time = currentTimeSeconds().toInt(),
-        sequenceIds = intArrayOf(client.atomicNextMessageSequenceId()),
-        originalMessage = message
-    )
-    sourceCallback(source)
     return createToStrangerImpl(
         client,
         stranger,
         message,
-        source
+        fragmented,
+        sourceCallback
     )
 }
 
@@ -411,6 +515,7 @@ internal inline fun MessageSvcPbSendMsg.createToFriend(
     client: QQAndroidClient,
     qq: Friend,
     message: MessageChain,
+    fragmented: Boolean,
     crossinline sourceCallback: (OnlineMessageSourceToFriendImpl) -> Unit
 ): List<OutgoingPacket> {
     contract {
@@ -420,6 +525,7 @@ internal inline fun MessageSvcPbSendMsg.createToFriend(
         client,
         qq,
         message,
+        fragmented,
         sourceCallback
     )
 }
@@ -429,35 +535,17 @@ internal inline fun MessageSvcPbSendMsg.createToGroup(
     client: QQAndroidClient,
     group: Group,
     message: MessageChain,
-    isForward: Boolean,
+    fragmented: Boolean,
     crossinline sourceCallback: (OnlineMessageSourceToGroupImpl) -> Unit
-): OutgoingPacket {
+): List<OutgoingPacket> {
     contract {
         callsInPlace(sourceCallback, InvocationKind.EXACTLY_ONCE)
     }
-    val messageRandom = Random.nextInt().absoluteValue
-    val source = OnlineMessageSourceToGroupImpl(
-        group,
-        internalIds = intArrayOf(messageRandom),
-        sender = client.bot,
-        target = group,
-        time = currentTimeSeconds().toInt(),
-        originalMessage = message//,
-        //   sourceMessage = message
-    )
-
-    sourceCallback(source)
-
-    client.syncingController.pendingGroupMessageReceiptCacheList.addCache(
-        PendingGroupMessageReceiptSyncId(
-            messageRandom = messageRandom,
-        )
-    )
     return createToGroupImpl(
         client,
         group,
         message,
-        isForward,
-        source
+        fragmented,
+        sourceCallback
     )
 }

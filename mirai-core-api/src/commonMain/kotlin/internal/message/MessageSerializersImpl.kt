@@ -47,7 +47,6 @@ public open class MessageSourceSerializerImpl(serialName: String) :
             takeElementsFrom(SerialData.serializer().descriptor)
         },
         serialize = {
-            // TODO: 2021-01-09 解决因为 originMessage 中 MessageSource 与 this 相同造成的死循环
             SerialData(kind, botId, ids, internalIds, time, fromId, targetId, originalMessage)
         },
         deserialize = {
@@ -100,6 +99,8 @@ private val builtInSerializersModule by lazy {
         contextual(VipFace::class, VipFace.serializer())
         contextual(FlashImage::class, FlashImage.serializer())
 
+        contextual(MusicShare::class, MusicShare.serializer())
+
         contextual(MessageSource::class, MessageSource.serializer())
 
         fun PolymorphicModuleBuilder<MessageMetadata>.messageMetadataSubclasses() {
@@ -127,6 +128,8 @@ private val builtInSerializersModule by lazy {
             subclass(PokeMessage::class, PokeMessage.serializer())
             subclass(VipFace::class, VipFace.serializer())
             subclass(FlashImage::class, FlashImage.serializer())
+
+            subclass(MusicShare::class, MusicShare.serializer())
         }
 
         contextual(SingleMessage::class, SingleMessage.Serializer)
@@ -169,6 +172,8 @@ private val builtInSerializersModule by lazy {
     }
 }
 
+// Tests:
+// net.mamoe.mirai.internal.message.data.MessageSerializationTest
 internal object MessageSerializersImpl : MessageSerializers {
     @Volatile
     private var serializersModuleField: SerializersModule? = null

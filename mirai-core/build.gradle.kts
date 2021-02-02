@@ -10,7 +10,6 @@
 @file:Suppress("UNUSED_VARIABLE")
 
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
-import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 
 plugins {
     kotlin("multiplatform")
@@ -35,24 +34,15 @@ afterEvaluate {
 }
 
 kotlin {
+    explicitApi()
+
     if (isAndroidSDKAvailable) {
         apply(from = rootProject.file("gradle/android.gradle"))
         android("android") {
             publishAllLibraryVariants()
         }
     } else {
-        println(
-            """Android SDK 可能未安装.
-                $name 的 Android 目标编译将不会进行. 
-                这不会影响 Android 以外的平台的编译.
-            """.trimIndent()
-        )
-        println(
-            """Android SDK might not be installed.
-                Android target of $name will not be compiled. 
-                It does no influence on the compilation of other platforms.
-            """.trimIndent()
-        )
+        printAndroidNotInstalled()
     }
 
     jvm("common") {
@@ -67,14 +57,10 @@ kotlin {
     }*/
 
     sourceSets.apply {
-        all {
-            dependencies {
-                api(project(":mirai-core-api"))
-            }
-        }
 
         commonMain {
             dependencies {
+                api(project(":mirai-core-api"))
                 implementation(project(":mirai-core-utils"))
                 api1(`kotlinx-serialization-core`)
                 api1(`kotlinx-serialization-json`)
@@ -83,7 +69,7 @@ kotlin {
                 api1(`kotlinx-atomicfu`)
                 api1(`kotlinx-coroutines-core`)
 
-                api1(`kotlinx-io`)
+                api1(`kotlinx-io-jvm`)
                 implementation1(`kotlinx-coroutines-io`)
             }
         }
@@ -113,7 +99,6 @@ kotlin {
         jvmMain {
             dependencies {
                 implementation("org.bouncycastle:bcprov-jdk15on:1.64")
-                api1(`kotlinx-io-jvm`)
                 // api(kotlinx("coroutines-debug", Versions.coroutines))
             }
         }
@@ -126,20 +111,6 @@ kotlin {
         }
     }
 }
-
-val NamedDomainObjectContainer<KotlinSourceSet>.androidMain: NamedDomainObjectProvider<KotlinSourceSet>
-    get() = named<KotlinSourceSet>("androidMain")
-
-val NamedDomainObjectContainer<KotlinSourceSet>.androidTest: NamedDomainObjectProvider<KotlinSourceSet>
-    get() = named<KotlinSourceSet>("androidTest")
-
-
-val NamedDomainObjectContainer<KotlinSourceSet>.jvmMain: NamedDomainObjectProvider<KotlinSourceSet>
-    get() = named<KotlinSourceSet>("jvmMain")
-
-val NamedDomainObjectContainer<KotlinSourceSet>.jvmTest: NamedDomainObjectProvider<KotlinSourceSet>
-    get() = named<KotlinSourceSet>("jvmTest")
-
 
 fun org.jetbrains.kotlin.gradle.plugin.KotlinDependencyHandler.implementation1(dependencyNotation: String) =
     implementation(dependencyNotation) {
@@ -159,21 +130,4 @@ fun org.jetbrains.kotlin.gradle.plugin.KotlinDependencyHandler.api1(dependencyNo
         exclude("org.jetbrains.kotlinx", "kotlinx-coroutines-core-metadata")
     }
 
-apply(from = rootProject.file("gradle/publish.gradle"))
-
-
-tasks.withType<com.jfrog.bintray.gradle.tasks.BintrayUploadTask> {
-    doFirst {
-        publishing.publications
-            .filterIsInstance<MavenPublication>()
-            .forEach { publication ->
-                val moduleFile = buildDir.resolve("publications/${publication.name}/module.json")
-                if (moduleFile.exists()) {
-                    publication.artifact(object :
-                        org.gradle.api.publish.maven.internal.artifact.FileBasedMavenArtifact(moduleFile) {
-                        override fun getDefaultExtension() = "module"
-                    })
-                }
-            }
-    }
-}
+configureMppPublishing()

@@ -72,7 +72,7 @@ internal fun MessageChain.toRichTextElems(
                     )
                     transformOneMessage(UNSUPPORTED_MERGED_MESSAGE_PLAIN)
                 }
-                is LongMessage -> {
+                is LongMessageInternal -> {
                     check(longTextResId == null) { "There must be no more than one LongMessage element in the message chain" }
                     elements.add(
                         ImMsgBody.Elem(
@@ -232,11 +232,20 @@ internal fun MessageChain.toRichTextElems(
                     )
                 )
             }
+            is MusicShare -> {
+                // 只有在 QuoteReply 的 source 里才会进行 MusicShare 转换, 因此可以转 PT.
+                // 发送消息时会被特殊处理
+                transformOneMessage(PlainText(currentMessage.content))
+            }
+
             is ForwardMessage,
             is MessageSource, // mirai metadata only
             is RichMessage // already transformed above
             -> {
 
+            }
+            is InternalFlagOnlyMessage, is ShowImageFlag -> {
+                // ignore
             }
             else -> error("unsupported message type: ${currentMessage::class.simpleName}")
         }
@@ -375,7 +384,7 @@ private fun MessageChain.cleanupRubbishMessageElements(): MessageChain {
     return buildMessageChain(initialSize = this.count()) {
         this@cleanupRubbishMessageElements.forEach { element ->
             @Suppress("INVISIBLE_MEMBER", "INVISIBLE_REFERENCE")
-            if (last is LongMessage && element is PlainText) {
+            if (last is LongMessageInternal && element is PlainText) {
                 if (element == UNSUPPORTED_MERGED_MESSAGE_PLAIN) {
                     previousLast = last
                     last = element
@@ -474,7 +483,14 @@ internal fun List<ImMsgBody.Elem>.joinToMessageChain(
                 )
             }
             element.notOnlineImage != null -> list.add(OnlineFriendImageImpl(element.notOnlineImage))
-            element.customFace != null -> list.add(OnlineGroupImageImpl(element.customFace))
+            element.customFace != null -> {
+                list.add(OnlineGroupImageImpl(element.customFace))
+                element.customFace.pbReserve.let {
+                    if (it.isNotEmpty() && it.loadAs(CustomFace.ResvAttr.serializer()).msgImageShow != null) {
+                        list.add(ShowImageFlag)
+                    }
+                }
+            }
             element.face != null -> list.add(Face(element.face.index))
             element.text != null -> {
                 if (element.text.attr6Buf.isEmpty()) {
@@ -510,7 +526,8 @@ internal fun List<ImMsgBody.Elem>.joinToMessageChain(
                         else -> error("unknown compression flag=${element.lightApp.data[0]}")
                     }
                 }
-                list.add(LightApp(content))
+
+                list.add(LightApp(content).refine())
             }
             element.richMsg != null -> {
                 val content = runWithBugReport("解析 richMsg", { element.richMsg.template1.toUHexString() }) {
@@ -535,7 +552,7 @@ internal fun List<ImMsgBody.Elem>.joinToMessageChain(
                     1 -> @Suppress("DEPRECATION_ERROR")
                     list.add(SimpleServiceMessage(1, content))
                     /**
-                     * [LongMessage], [ForwardMessage]
+                     * [LongMessageInternal], [ForwardMessage]
                      */
                     35 -> {
                         val resId = this.firstIsInstanceOrNull<ImMsgBody.GeneralFlags>()?.longTextResid
@@ -638,7 +655,7 @@ internal fun contextualBugReportException(
     e: Throwable? = null,
     additional: String = ""
 ): IllegalStateException {
-    return IllegalStateException("在 $context 时遇到了意料之中的问题. 请完整复制此日志提交给 mirai. $additional 调试信息: $forDebug", e)
+    return IllegalStateException("在 $context 时遇到了意料之中的问题. 请完整复制此日志提交给 mirai: https://github.com/mamoe/mirai/issues/new   $additional 调试信息: $forDebug", e)
 }
 
 @OptIn(ExperimentalContracts::class)

@@ -7,7 +7,7 @@
  *  https://github.com/mamoe/mirai/blob/master/LICENSE
  */
 
-@file:Suppress("UnstableApiUsage", "UNUSED_VARIABLE")
+@file:Suppress("UnstableApiUsage", "UNUSED_VARIABLE", "NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS")
 
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.jetbrains.dokka.gradle.DokkaTask
@@ -39,15 +39,40 @@ plugins {
     kotlin("jvm") version Versions.kotlinCompiler
     kotlin("plugin.serialization") version Versions.kotlinCompiler
     id("org.jetbrains.dokka") version Versions.dokka
-    id("net.mamoe.kotlin-jvm-blocking-bridge") version Versions.blockingBridge apply false
-    id("com.jfrog.bintray") version Versions.bintray
+    id("net.mamoe.kotlin-jvm-blocking-bridge") version Versions.blockingBridge
+    id("com.jfrog.bintray") // version Versions.bintray
+    id("com.gradle.plugin-publish") version "0.12.0" apply false
 }
 
 // https://github.com/kotlin/binary-compatibility-validator
-//apply(plugin = "binary-compatibility-validator")
+apply(plugin = "binary-compatibility-validator")
 
+configure<kotlinx.validation.ApiValidationExtension> {
+    allprojects.forEach { subproject ->
+        ignoredProjects.add(subproject.name)
+    }
+    ignoredProjects.remove("binary-compatibility-validator")
+    // Enable validator for module `binary-compatibility-validator` only.
+
+
+    ignoredPackages.add("net.mamoe.mirai.internal")
+    ignoredPackages.add("net.mamoe.mirai.console.internal")
+    nonPublicMarkers.add("net.mamoe.mirai.MiraiInternalApi")
+    nonPublicMarkers.add("net.mamoe.mirai.console.utils.ConsoleInternalApi")
+    nonPublicMarkers.add("net.mamoe.mirai.console.utils.ConsoleExperimentalApi")
+    nonPublicMarkers.add("net.mamoe.mirai.MiraiExperimentalApi")
+}
 
 project.ext.set("isAndroidSDKAvailable", false)
+
+tasks.register("publishMiraiCoreArtifactsToMavenLocal") {
+    group = "mirai"
+    dependsOn(
+        project(":mirai-core-api").tasks.getByName("publishToMavenLocal"),
+        project(":mirai-core-utils").tasks.getByName("publishToMavenLocal"),
+        project(":mirai-core").tasks.getByName("publishToMavenLocal")
+    )
+}
 
 // until
 // https://youtrack.jetbrains.com/issue/KT-37152,
@@ -89,6 +114,13 @@ allprojects {
         configureKotlinTestSettings()
         configureKotlinCompilerSettings()
         configureKotlinExperimentalUsages()
+
+        runCatching {
+            blockingBridge {
+                unitCoercion = net.mamoe.kjbb.compiler.UnitCoercion.COMPATIBILITY
+            }
+        }
+
         //  useIr()
 
         if (isKotlinJvmProject) {
@@ -100,6 +132,7 @@ allprojects {
 subprojects {
     afterEvaluate {
         if (project.name == "mirai-core-api") configureDokka()
+        if (project.name == "mirai-console") configureDokka()
     }
 }
 
@@ -129,7 +162,9 @@ fun Project.configureDokka() {
             for (suppressedPackage in arrayOf(
                 """net.mamoe.mirai.internal""",
                 """net.mamoe.mirai.internal.message""",
-                """net.mamoe.mirai.internal.network"""
+                """net.mamoe.mirai.internal.network""",
+                """net.mamoe.mirai.console.internal""",
+                """net.mamoe.mirai.console.compiler.common"""
             )) {
                 perPackageOption {
                     matchingRegex.set(suppressedPackage.replace(".", "\\."))
@@ -178,8 +213,6 @@ fun Project.configureMppShadow() {
             dependsOn(it.compileKotlinTask)
             from(it.output)
         }
-
-        println(project.configurations.joinToString())
 
         from(project.configurations.getByName("jvmRuntimeClasspath"))
 
@@ -255,6 +288,8 @@ val experimentalAnnotations = arrayOf(
     "kotlin.experimental.ExperimentalTypeInference",
     "kotlin.ExperimentalUnsignedTypes",
     "kotlin.time.ExperimentalTime",
+    "kotlin.io.path.ExperimentalPathApi",
+    "io.ktor.util.KtorExperimentalAPI",
 
     "kotlinx.serialization.ExperimentalSerializationApi",
 
@@ -263,7 +298,10 @@ val experimentalAnnotations = arrayOf(
     "net.mamoe.mirai.LowLevelApi",
     "net.mamoe.mirai.utils.UnstableExternalImage",
 
-    "net.mamoe.mirai.message.data.ExperimentalMessageKey"
+    "net.mamoe.mirai.message.data.ExperimentalMessageKey",
+    "net.mamoe.mirai.console.ConsoleFrontEndImplementation",
+    "net.mamoe.mirai.console.util.ConsoleInternalApi",
+    "net.mamoe.mirai.console.util.ConsoleExperimentalApi"
 )
 
 fun Project.configureKotlinExperimentalUsages() {

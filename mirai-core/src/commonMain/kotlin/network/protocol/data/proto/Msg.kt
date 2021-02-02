@@ -15,7 +15,6 @@ import kotlinx.serialization.protobuf.ProtoNumber
 import kotlinx.serialization.protobuf.ProtoType
 import net.mamoe.mirai.internal.network.protocol.packet.EMPTY_BYTE_ARRAY
 import net.mamoe.mirai.internal.utils.io.ProtoBuf
-import net.mamoe.mirai.internal.utils.io.serialization.toByteArray
 
 @Serializable
 internal class ImCommon : ProtoBuf {
@@ -681,7 +680,7 @@ internal class ImMsgBody : ProtoBuf {
     @Serializable
     internal class NotOnlineImage(
         @ProtoNumber(1) @JvmField val filePath: String = "",
-        @ProtoNumber(2) @JvmField val fileLen: Int = 0,
+        @ProtoNumber(2) @JvmField val fileLen: Long = 0L, // originally int
         @ProtoNumber(3) @JvmField val downloadPath: String = "",
         @ProtoNumber(4) @JvmField val oldVerSendFile: ByteArray = EMPTY_BYTE_ARRAY,
         @ProtoNumber(5) @JvmField val imgType: Int = 0,
@@ -711,20 +710,6 @@ internal class ImMsgBody : ProtoBuf {
         @ProtoNumber(29) @JvmField val pbReserve: ByteArray = EMPTY_BYTE_ARRAY
     ) : ProtoBuf, NotOnlineImageOrCustomFace
 
-    @Serializable // 非官方.
-    internal class PbReserve(
-        @ProtoNumber(1) @JvmField val unknown1: Int = 1,
-        @ProtoNumber(2) @JvmField val unknown2: Int = 0,
-        @ProtoNumber(6) @JvmField val unknown3: Int = 0,
-        @ProtoNumber(8) @JvmField val hint: String = "[动画表情]",
-        @ProtoNumber(10) @JvmField val unknown5: Int = 0,
-        @ProtoNumber(15) @JvmField val unknwon6: Int = 5
-    ) : ProtoBuf {
-        companion object {
-            @JvmField
-            val DEFAULT: ByteArray = PbReserve().toByteArray(serializer())
-        }
-    }
 
     @Serializable
     internal class OnlineImage(

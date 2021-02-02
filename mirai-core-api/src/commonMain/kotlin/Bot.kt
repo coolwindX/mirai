@@ -171,6 +171,7 @@ public interface Bot : CoroutineScope, ContactOrBot, UserOrBot {
      */
     public override fun nudge(): BotNudge = BotNudge(this)
 
+
     /**
      * 关闭这个 [Bot], 立即取消 [Bot] 的 [SupervisorJob], 取消与这个 [Bot] 相关的所有有协程联系的任务.
      *
