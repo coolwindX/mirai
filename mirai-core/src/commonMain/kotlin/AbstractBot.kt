@@ -322,6 +322,7 @@ internal abstract class AbstractBot<N : BotNetworkHandler> constructor(
         }
     }
 
+    protected abstract suspend fun sendLogout()
 
     override fun close(cause: Throwable?) {
         if (!this.isActive) {
@@ -329,14 +330,20 @@ internal abstract class AbstractBot<N : BotNetworkHandler> constructor(
             return
         }
 
-        if (this.network.areYouOk()) {
-            GlobalScope.launch {
-                runCatching { BotOfflineEvent.Active(this@AbstractBot, cause).broadcast() }.exceptionOrNull()
-                    ?.let { logger.error(it) }
-            }
-        }
+        if (::_network.isInitialized) {
+            if (this.network.areYouOk()) {
 
-        this.network.close(cause)
+                // send log out
+                kotlin.runCatching { runBlocking { sendLogout() } } // just ignore errors
+
+                GlobalScope.launch {
+                    runCatching { BotOfflineEvent.Active(this@AbstractBot, cause).broadcast() }.exceptionOrNull()
+                        ?.let { logger.error(it) }
+                }
+            }
+
+            this.network.close(cause)
+        }
 
         if (supervisorJob.isActive) {
             if (cause == null) {
