@@ -25,6 +25,9 @@ import java.io.File
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.coroutines.coroutineContext
+import kotlin.time.Duration
+import kotlin.time.ExperimentalTime
+import kotlin.time.milliseconds
 
 /**
  * [Bot] 配置. 用于 [BotFactory.newBot]
@@ -274,8 +277,8 @@ public open class BotConfiguration { // open for Java
      *
      * - 默认打印到标准输出, 通过 [MiraiLogger.create]
      * - 忽略所有日志: [noBotLog]
-     * - 重定向到一个目录: `networkLoggerSupplier = { DirectoryLogger("Net ${it.id}") }`
-     * - 重定向到一个文件: `networkLoggerSupplier = { SingleFileLogger("Net ${it.id}") }`
+     * - 重定向到一个目录: `botLoggerSupplier = { DirectoryLogger("Bot ${it.id}") }`
+     * - 重定向到一个文件: `botLoggerSupplier = { SingleFileLogger("Bot ${it.id}") }`
      *
      * @see MiraiLogger
      */
@@ -383,89 +386,91 @@ public open class BotConfiguration { // open for Java
     //////////////////////////////////////////////////////////////////////////
 
     /**
-     * 非 `null` 时启用好友列表缓存, 加快初始化速度. 在启用后将会在下载好友列表后保存到文件, 并在修改时自动保存.
+     * 缓存数据目录, 相对于 [workingDir]
      * @since 2.4
-     * @see disableFriendListCache
      */
-    public var friendListCache: FriendListCache? = FriendListCache()
+    public var cacheDir: File = File("cache")
 
     /**
-     * 好友列表缓存设置.
+     * 联系人信息缓存配置. 将会保存在 [cacheDir] 中 `contacts` 目录
      * @since 2.4
-     * @see friendListCache
      */
-    public class FriendListCache @JvmOverloads constructor(
+    public var contactListCache: ContactListCache = ContactListCache()
+
+    /**
+     * 联系人信息缓存配置
+     * @see contactListCache
+     * @see enableContactCache
+     * @see disableContactCache
+     * @since 2.4
+     */
+    public class ContactListCache {
         /**
-         * 缓存文件位置, 相对于 [workingDir] 的路径.
-         *
-         * 注意: 保存的文件仅供内部使用, 将来可能会变化.
+         * 在有修改时自动保存间隔. 默认 60 秒. 在每次登录完成后有修改时都会立即保存一次.
          */
-        public val cacheFile: File = File("cache/friends.json"),
+        public var saveIntervalMillis: Long = 60_000
+
         /**
-         * 在有好友列表修改时自动保存间隔
+         * 在有修改时自动保存间隔. 默认 60 秒. 在每次登录完成后有修改时都会立即保存一次.
          */
-        public val saveIntervalMillis: Long = 60_000,
-    )
+        @ExperimentalTime
+        public inline var saveInterval: Duration
+            @JvmSynthetic inline get() = saveIntervalMillis.milliseconds
+            @JvmSynthetic inline set(v) {
+                saveIntervalMillis = v.toLongMilliseconds()
+            }
 
-    /**
-     * 禁用好友列表缓存.
-     * @since 2.4
-     */
-    @ConfigurationDsl
-    public fun disableFriendListCache() {
-        friendListCache = null
-    }
-
-
-
-    /**
-     * 非 `null` 时启用群成员列表缓存, 加快初始化速度. 在启用后将会在下载群成员列表后保存到文件, 并在修改时自动保存.
-     * @since 2.4
-     * @see disableGroupMemberListCache
-     */
-    public var groupMemberListCache: GroupMemberListCache? = GroupMemberListCache()
-
-    /**
-     * 群成员列表缓存设置.
-     * @since 2.4
-     * @see groupMemberListCache
-     */
-    public class GroupMemberListCache @JvmOverloads constructor(
         /**
-         * 缓存目录位置, 相对于 [workingDir] 的路径.
-         *
-         * 注意: 保存的文件仅供内部使用, 将来可能会变化.
+         * 开启好友列表缓存.
          */
-        public val cacheDir: File = File("cache/groups"),
-        /**
-         * 在有成员列表修改时自动保存间隔
-         */
-        public val saveIntervalMillis: Long = 60_000,
-    )
+        public var friendListCacheEnabled: Boolean = false
 
-    /**
-     * 禁用群成员列表缓存.
-     * @since 2.4
-     */
-    @ConfigurationDsl
-    public fun disableGroupMemberListCache() {
-        groupMemberListCache = null
+        /**
+         * 开启群成员列表缓存.
+         */
+        public var groupMemberListCacheEnabled: Boolean = false
     }
 
     /**
-     * 禁用好友列表, 群成员列表, 陌生人列表的缓存.
+     * 配置 [ContactListCache]
+     * ```
+     * contactListCache {
+     *     saveIntervalMillis = 30_000
+     *     friendListCacheEnabled = true
+     * }
+     * ```
+     * @since 2.4
+     */
+    @JvmSynthetic
+    public inline fun contactListCache(action: ContactListCache.() -> Unit) {
+        action.invoke(this.contactListCache)
+    }
+
+    /**
+     * 禁用好友列表和群成员列表的缓存.
      * @since 2.4
      */
     @ConfigurationDsl
-    public fun disableContactCaches() {
-        disableFriendListCache()
-        disableGroupMemberListCache()
+    public fun disableContactCache() {
+        contactListCache.friendListCacheEnabled = false
+        contactListCache.groupMemberListCacheEnabled = false
+    }
+
+    /**
+     * 启用好友列表和群成员列表的缓存.
+     * @since 2.4
+     */
+    @ConfigurationDsl
+    public fun enableContactCache() {
+        contactListCache.friendListCacheEnabled = true
+        contactListCache.groupMemberListCacheEnabled = true
     }
 
     ///////////////////////////////////////////////////////////////////////////
     // Misc
     ///////////////////////////////////////////////////////////////////////////
 
+    @Suppress("DuplicatedCode")
     public fun copy(): BotConfiguration {
         return BotConfiguration().also { new ->
             // To structural order
@@ -484,10 +489,22 @@ public open class BotConfiguration { // open for Java
             new.deviceInfo = deviceInfo
             new.botLoggerSupplier = botLoggerSupplier
             new.networkLoggerSupplier = networkLoggerSupplier
-            new.friendListCache = friendListCache
-            new.groupMemberListCache = groupMemberListCache
+            new.cacheDir = cacheDir
+            new.contactListCache = contactListCache
+            new.convertLineSeparator = convertLineSeparator
         }
     }
+
+    /**
+     * 是否处理接受到的特殊换行符, 默认为 `true`
+     *
+     * - 若为 `true`, 会将收到的 `CRLF(\r\n)` 和 `CR(\r)` 替换为 `LF(\n)`
+     * - 若为 `false`, 则不做处理
+     *
+     * @since 2.4
+     */
+    @get:JvmName("isConvertLineSeparator")
+    public var convertLineSeparator: Boolean = true
 
     /** 标注一个配置 DSL 函数 */
     @Target(AnnotationTarget.FUNCTION)

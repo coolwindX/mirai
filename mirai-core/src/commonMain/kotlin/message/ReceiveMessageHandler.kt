@@ -13,6 +13,7 @@ import kotlinx.io.core.discardExact
 import kotlinx.io.core.readUInt
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.contact.Contact
+import net.mamoe.mirai.internal.asQQAndroidBot
 import net.mamoe.mirai.internal.message.ReceiveMessageTransformer.cleanupRubbishMessageElements
 import net.mamoe.mirai.internal.message.ReceiveMessageTransformer.joinToMessageChain
 import net.mamoe.mirai.internal.message.ReceiveMessageTransformer.toVoice
@@ -139,7 +140,7 @@ private object ReceiveMessageTransformer {
             element.customFace != null -> decodeCustomFace(element.customFace, builder)
             element.face != null -> builder.add(Face(element.face.index))
             element.text != null -> decodeText(element.text, builder)
-            element.marketFace != null -> builder.add(MarketFaceImpl(element.marketFace))
+            element.marketFace != null -> builder.add(MarketFaceInternal(element.marketFace))
             element.lightApp != null -> decodeLightApp(element.lightApp, builder)
             element.customElem != null -> decodeCustomElem(element.customElem, builder)
             element.commonElem != null -> decodeCommonElem(element.commonElem, builder)
@@ -152,6 +153,33 @@ private object ReceiveMessageTransformer {
             else -> {
                 // println(it._miraiContentToString())
             }
+        }
+    }
+
+    fun MessageChainBuilder.compressContinuousPlainText() {
+        var index = 0
+        val builder = StringBuilder()
+        while (index + 1 < size) {
+            val elm0 = get(index)
+            val elm1 = get(index + 1)
+            if (elm0 is PlainText && elm1 is PlainText) {
+                builder.setLength(0)
+                var end = -1
+                for (i in index until size) {
+                    val elm = get(i)
+                    if (elm is PlainText) {
+                        end = i
+                        builder.append(elm.content)
+                    } else break
+                }
+                set(index, PlainText(builder.toString()))
+                // do delete
+                val index1 = index + 1
+                repeat(end - index) {
+                    removeAt(index1)
+                }
+            }
+            index++
         }
     }
 
@@ -214,15 +242,14 @@ private object ReceiveMessageTransformer {
                     }
                 }
 
-                if (element is PlainText) { // 处理分片消息
-                    append(element.content)
-                } else {
-                    add(element)
-                }
+                append(element)
 
                 previousLast = last
                 last = element
             }
+
+            // 处理分片信息
+            compressContinuousPlainText()
         }
     }
 
@@ -278,7 +305,7 @@ private object ReceiveMessageTransformer {
             }
         }
 
-        list.add(LightApp(content).refine())
+        list.add(LightAppInternal(content))
     }
 
     private fun decodeCustomElem(
@@ -427,14 +454,36 @@ private object ReceiveMessageTransformer {
 
 /**
  * 解析 [ForwardMessageInternal], [LongMessageInternal]
+ * 并处理换行符问题
  */
 internal suspend fun MessageChain.refine(contact: Contact): MessageChain {
-    if (none { it is RefinableMessage }) return this
+    val convertLineSeparator = contact.bot.asQQAndroidBot().configuration.convertLineSeparator
+
+    if (none {
+            it is RefinableMessage
+                    || (it is PlainText && convertLineSeparator && it.content.contains('\r'))
+        }
+    ) return this
+
+
     val builder = MessageChainBuilder(this.size)
     for (singleMessage in this) {
         if (singleMessage is RefinableMessage) {
             val v = singleMessage.refine(contact, this)
             if (v != null) builder.add(v)
+        } else if (singleMessage is PlainText && convertLineSeparator) {
+            val content = singleMessage.content
+            if (content.contains('\r')) {
+                builder.add(
+                    PlainText(
+                        content
+                            .replace("\r\n", "\n")
+                            .replace('\r', '\n')
+                    )
+                )
+            } else {
+                builder.add(singleMessage)
+            }
         } else {
             builder.add(singleMessage)
         }

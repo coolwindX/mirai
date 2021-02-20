@@ -64,6 +64,7 @@ configure<kotlinx.validation.ApiValidationExtension> {
 }
 
 project.ext.set("isAndroidSDKAvailable", false)
+GpgSigner.setup(project)
 
 tasks.register("publishMiraiCoreArtifactsToMavenLocal") {
     group = "mirai"
@@ -104,7 +105,6 @@ allprojects {
         maven(url = "https://kotlin.bintray.com/kotlinx")
         google()
         mavenCentral()
-        maven(url = "https://dl.bintray.com/karlatemp/misc")
     }
 
     afterEvaluate {
@@ -138,10 +138,20 @@ subprojects {
 
 tasks.register("cleanExceptIntellij") {
     group = "build"
-    allprojects.forEach {
-        if (it.name != "mirai-console-intellij")
-            dependsOn(it.tasks.findByName("clean"))
+    allprojects.forEach { proj ->
+        if (proj.name != "mirai-console-intellij") {
+
+            // Type mismatch
+            // proj.tasks.findByName("clean")?.let(::dependsOn)
+
+            proj.tasks.findByName("clean")?.let { dependsOn(it) }
+        }
     }
+}
+
+extensions.findByName("buildScan")?.withGroovyBuilder {
+    setProperty("termsOfServiceUrl", "https://gradle.com/terms-of-service")
+    setProperty("termsOfServiceAgree", "yes")
 }
 
 fun Project.useIr() {

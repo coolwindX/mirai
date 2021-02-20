@@ -28,6 +28,7 @@ import net.mamoe.mirai.event.EventPriority.MONITOR
 import net.mamoe.mirai.event.events.BotEvent
 import net.mamoe.mirai.event.events.BotOfflineEvent
 import net.mamoe.mirai.event.events.BotReloginEvent
+import net.mamoe.mirai.internal.message.contextualBugReportException
 import net.mamoe.mirai.internal.network.BotNetworkHandler
 import net.mamoe.mirai.internal.network.DefaultServerList
 import net.mamoe.mirai.internal.network.closeAndJoin
@@ -68,7 +69,7 @@ internal abstract class AbstractBot<N : BotNetworkHandler> constructor(
     }
 
     // region network
-    internal val serverList: MutableList<Pair<String, Int>> = DefaultServerList.toMutableList()
+    internal val serverList: MutableList<Pair<String, Int>> = mutableListOf()
 
     val network: N get() = _network
 
@@ -149,7 +150,10 @@ internal abstract class AbstractBot<N : BotNetworkHandler> constructor(
 
                 bot.asQQAndroidBot().client.run {
                     if (serverList.isEmpty()) {
-                        serverList.addAll(DefaultServerList)
+                        bot.asQQAndroidBot().bdhSyncer.loadServerListFromCache()
+                        if (serverList.isEmpty()) {
+                            serverList.addAll(DefaultServerList)
+                        } else Unit
                     } else serverList.removeAt(0)
                 }
 
@@ -285,6 +289,18 @@ internal abstract class AbstractBot<N : BotNetworkHandler> constructor(
                 @OptIn(ThisApiMustBeUsedInWithConnectionLockBlock::class)
                 reinitializeNetworkHandler(null)
             }
+
+            // https://github.com/mamoe/mirai/issues/1019
+            kotlin.runCatching {
+                nick
+            }.onFailure {
+                throw contextualBugReportException(
+                    context = "Bot login",
+                    forDebug = it.toString(),
+                    e = it,
+                )
+            }
+
             logger.info { "Login successful" }
         }
     }
