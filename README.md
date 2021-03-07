@@ -7,7 +7,9 @@
 
 ![Gradle CI](https://github.com/mamoe/mirai/workflows/Gradle%20CI/badge.svg?branch=master)
 [![Download](https://api.bintray.com/packages/him188moe/mirai/mirai-core/images/download.svg)](https://bintray.com/him188moe/mirai/mirai-core/)
+[![Maven Central](https://img.shields.io/maven-central/v/net.mamoe/mirai-core-api.svg?label=Maven%20Central)](https://search.maven.org/search?q=net.mamoe%20mirai)
 [![Gitter](https://badges.gitter.im/mamoe/mirai.svg)](https://gitter.im/mamoe/mirai?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+[![MiraiForum](https://img.shields.io/badge/post-on%20MiraiForum-yellow)](https://mirai.mamoe.net)
 
 mirai 是一个在全平台下运行，提供 QQ Android 协议支持的高效率机器人库
 
@@ -121,15 +123,22 @@ mirai 是一个在全平台下运行，提供 QQ Android 协议支持的高效�
 - 开发文档: [docs](docs/README.md)
 - 更新日志: [release](https://github.com/mamoe/mirai/releases)
 - 开发计划: [milestones](https://github.com/mamoe/mirai/milestones)
-- 讨论: [GitHub Discussions](https://github.com/mamoe/mirai/discussions) 和 [Gitter](https://gitter.im/mamoe/mirai?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
-  > 在 GitHub Discussions 提出的问题可能会收到 mirai 维护者的回复, 也欢迎分享你基于 mirai 的项目或想法.
+- 讨论: [GitHub Discussions](https://github.com/mamoe/mirai/discussions) 和 [Gitter](https://gitter.im/mamoe/mirai?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) 以及 [MiraiForum](https://mirai.mamoe.net/)
+  > 在 GitHub Discussions 和 MiraiForum 提出的问题可能会收到 mirai 维护者的回复, 也欢迎分享你基于 mirai 的项目或想法.
   >
-  > *除这两个途径外，Mirai 在各个平台均没有官方交流群或论坛*
+  > *除这三个途径外，Mirai 在各个平台均没有官方交流群或论坛*
 
 - mirai 官方系列项目: [project-mirai](https://github.com/project-mirai)
 - mirai 社区相关项目: [awesome-mirai](https://github.com/project-mirai/awsome-mirai/blob/master/README.md)
 
 - 帮助 mirai: [CONTRIBUTING](CONTRIBUTING.md)
+
+## 赞助
+ - 本着与更多mirai开发者，用户，支持者共建更好的学习环境为目的，mamoe自2021年3月1日发起mirai官方社区的建设。社区建设可能涉及：学习论坛，插件中心，发布平台。由于社区的运维需要经费，mirai项目开启sponsor功能。
+- 请注意，赞助是全自愿的，赞助者不会获得所谓“特权”，为资金管理方便，赞助后不设退款，折现等选项，最终解释权归社区运营团队所有。
+- 全部赞助金额，流向，票据单号等将全部<a href="https://github.com/project-mirai/mirai-sponsor/tree/main">透明化公示</a>，欢迎任何人随时查看及提出建议。
+- 赞助支持实名/匿名，方式暂定仅支持支付宝。
+
 
 ## 鸣谢
 
