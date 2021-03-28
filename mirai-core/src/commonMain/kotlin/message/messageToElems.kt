@@ -194,6 +194,7 @@ internal fun MessageChain.toRichTextElems(
                     }
                 }
             }
+            is Dice -> transformOneMessage(MarketFaceImpl(currentMessage.toJceStruct()))
             is MarketFace -> {
                 if (currentMessage is MarketFaceImpl) {
                     elements.add(ImMsgBody.Elem(marketFace = currentMessage.delegate))
@@ -238,6 +239,7 @@ internal fun MessageChain.toRichTextElems(
             is InternalFlagOnlyMessage, is ShowImageFlag -> {
                 // ignore
             }
+            is UnsupportedMessageImpl -> elements.add(currentMessage.structElem)
             else -> {
                 // unrecognized types are ignored
                 // error("unsupported message type: ${currentMessage::class.simpleName}")

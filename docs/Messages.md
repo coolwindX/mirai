@@ -77,6 +77,7 @@ Mirai 支持富文本消息。
 [`MarketFace`]: ../mirai-core-api/src/commonMain/kotlin/message/data/MarketFace.kt
 [`MusicShare`]: ../mirai-core-api/src/commonMain/kotlin/message/data/MusicShare.kt
 [`Dice`]: ../mirai-core-api/src/commonMain/kotlin/message/data/Dice.kt
+[`FileMessage`]: ../mirai-core-api/src/commonMain/kotlin/message/data/FileMessage.kt
 
 [`MessageSource`]: ../mirai-core-api/src/commonMain/kotlin/message/data/MessageSource.kt
 [`QuoteReply`]: ../mirai-core-api/src/commonMain/kotlin/message/data/QuoteReply.kt
@@ -105,6 +106,7 @@ Mirai 支持富文本消息。
 | [`SimpleServiceMessage`] | （不稳定）服务消息      | `$content`              |          2.0          |
 |      [`MusicShare`]      | 音乐分享              | `[分享]曲名`             |          2.1          |
 |         [`Dice`]         | 骰子                 | `[骰子:$value]`          |          2.5          |
+|     [`FileMessage`]      | 文件消息              | `[文件]文件名称`          |          2.5          |
 
 
 
@@ -388,6 +390,8 @@ at.serializeToMiraiCode() // 结果为 `[mirai:at:123]`
 |       [`LightApp`]       | `[mirai:app:$content]`                           |
 | [`SimpleServiceMessage`] | `[mirai:service:$serviceId,$content]`            |
 |         [`Dice`]         | `[mirai:dice:$value]`                            |
+|      [`MusicShare`]      | `[mirai:musicshare:$args]`                       |
+|     [`FileMessage`]      | `[mirai:file:$id,$internalId,$name,$size]`       |
 
 ### 由 mirai 码字符串取得 `MessageChain` 实例
 
@@ -418,4 +422,4 @@ new PlainText("[mirai:atall]").serializeToMiraiCode() // \[mirai\:atall\]
 
 > 回到 [目录](#目录)
 >
-> [回到 Mirai 文档索引](README.md#mirai-core-api-文档)
+> [回到 Mirai 文档索引](CoreAPI.md)

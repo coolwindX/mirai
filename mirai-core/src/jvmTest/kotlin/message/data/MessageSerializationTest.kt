@@ -17,7 +17,9 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.serializer
 import net.mamoe.mirai.Mirai
+import net.mamoe.mirai.internal.message.FileMessageImpl
 import net.mamoe.mirai.internal.message.MarketFaceImpl
+import net.mamoe.mirai.internal.message.UnsupportedMessageImpl
 import net.mamoe.mirai.internal.network.protocol.data.proto.ImMsgBody
 import net.mamoe.mirai.message.MessageSerializers
 import net.mamoe.mirai.message.data.*
@@ -74,6 +76,7 @@ internal class MessageSerializationTest {
         AtAll,
         image,
         Face(Face.AI_NI),
+        UnsupportedMessageImpl(ImMsgBody.Elem())
     )
 
     private val emptySource = Mirai.constructMessageSource(
@@ -111,6 +114,7 @@ internal class MessageSerializationTest {
         RichMessageOrigin(SimpleServiceMessage(1, "content"), "resource id", RichMessageKind.LONG),
         ShowImageFlag,
         Dice(1),
+        FileMessageImpl("id", 2, "name", 1)
     )
 
     companion object {
@@ -119,6 +123,18 @@ internal class MessageSerializationTest {
         fun init() {
             Mirai
         }
+    }
+
+    @Test
+    fun `test FileMessage serialization`() {
+        @Serializable
+        data class W(
+            val m: FileMessage
+        )
+
+        val w = W(FileMessageImpl("id", 2, "name", 1))
+        println(w.serialize(W.serializer()))
+        assertEquals(w, w.serialize(W.serializer()).deserialize(W.serializer()))
     }
 
     @Test

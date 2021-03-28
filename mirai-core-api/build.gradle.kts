@@ -60,7 +60,7 @@ kotlin {
                 api(`kotlinx-serialization-core`)
                 api(`kotlinx-serialization-json`)
                 implementation(`kotlinx-serialization-protobuf`)
-                api(`kotlinx-coroutines-core`)
+                api(`kotlinx-coroutines-jdk8`)
                 implementation(`jetbrains-annotations`)
                 // api(`kotlinx-coroutines-jdk8`)
 
@@ -103,7 +103,7 @@ kotlin {
 
 tasks.register("checkAndroidApiLevel") {
     doFirst {
-        androidutil.AndroidApiLevelCheck.check(
+        analyzes.AndroidApiLevelCheck.check(
             buildDir.resolve("classes/kotlin/android/main"),
             project.property("mirai.android.target.api.level")!!.toString().toInt(),
             project

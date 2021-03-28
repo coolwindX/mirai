@@ -12,7 +12,7 @@
 import org.gradle.api.attributes.Attribute
 
 object Versions {
-    const val project = "2.5-M1"
+    const val project = "2.5.0"
 
     const val core = project
     const val console = project
@@ -24,7 +24,7 @@ object Versions {
 
     const val coroutines = "1.4.2"
     const val atomicFU = "0.15.1"
-    const val serialization = "1.1.0-RC"
+    const val serialization = "1.1.0"
     const val ktor = "1.5.1"
 
     const val binaryValidator = "0.4.0"
@@ -32,7 +32,7 @@ object Versions {
     const val io = "0.1.16"
     const val coroutinesIo = "0.1.16"
 
-    const val blockingBridge = "1.10.0"
+    const val blockingBridge = "1.10.3"
 
     const val androidGradlePlugin = "4.1.1"
     const val android = "4.1.1.4"
@@ -63,6 +63,7 @@ fun ktor(id: String, version: String = Versions.ktor) = "io.ktor:ktor-$id:$versi
 
 val `kotlinx-coroutines-core` = kotlinx("coroutines-core", Versions.coroutines)
 val `kotlinx-coroutines-jdk8` = kotlinx("coroutines-jdk8", Versions.coroutines)
+val `kotlinx-coroutines-swing` = kotlinx("coroutines-swing", Versions.coroutines)
 val `kotlinx-serialization-core` = kotlinx("serialization-core", Versions.serialization)
 val `kotlinx-serialization-json` = kotlinx("serialization-json", Versions.serialization)
 val `kotlinx-serialization-protobuf` = kotlinx("serialization-protobuf", Versions.serialization)

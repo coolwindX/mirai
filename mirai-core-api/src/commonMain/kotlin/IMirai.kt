@@ -54,6 +54,8 @@ public interface IMirai : LowLevelApiAccessor {
      * Mirai 全局使用的 [FileCacheStrategy].
      *
      * 覆盖后将会立即应用到全局.
+     *
+     * @see FileCacheStrategy
      */
     public var FileCacheStrategy: FileCacheStrategy
 
@@ -136,6 +138,18 @@ public interface IMirai : LowLevelApiAccessor {
      * @see Image.fromId
      */
     public fun createImage(imageId: String): Image
+
+    /**
+     * 创建一个 [FileMessage]. [name] 与 [size] 只供本地使用, 发送消息时只会使用 [id] 和 [internalId].
+     * @since 2.5
+     */
+    public fun createFileMessage(id: String, internalId: Int, name: String, size: Long): FileMessage
+
+    /**
+     * 创建 [UnsupportedMessage]
+     * @since 2.6
+     */
+    public fun createUnsupportedMessage(struct: ByteArray): UnsupportedMessage
 
     /**
      * 获取图片下载链接
