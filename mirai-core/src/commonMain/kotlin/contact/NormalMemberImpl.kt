@@ -17,7 +17,6 @@ import kotlinx.coroutines.*
 import net.mamoe.mirai.LowLevelApi
 import net.mamoe.mirai.contact.*
 import net.mamoe.mirai.data.MemberInfo
-import net.mamoe.mirai.event.broadcast
 import net.mamoe.mirai.event.events.*
 import net.mamoe.mirai.internal.message.OnlineMessageSourceToTempImpl
 import net.mamoe.mirai.internal.network.protocol.packet.chat.TroopManagement
@@ -46,7 +45,7 @@ internal class NormalMemberImpl constructor(
 
     override fun toString(): String = "NormalMember($id)"
 
-    private val handler by lazy { GroupTempSendMessageHandler(this) }
+    private val handler: GroupTempSendMessageHandler by lazy { GroupTempSendMessageHandler(this) }
 
     @Suppress("DuplicatedCode")
     override suspend fun sendMessage(message: Message): MessageReceipt<NormalMember> {
@@ -129,6 +128,9 @@ internal class NormalMemberImpl constructor(
         check(this.id != bot.id) {
             "A bot can't mute itself."
         }
+        require(durationSeconds > 0) {
+            "durationSeconds must greater than zero"
+        }
         checkBotPermissionHigherThanThis("mute")
         bot.network.run {
             TroopManagement.Mute(
@@ -141,6 +143,7 @@ internal class NormalMemberImpl constructor(
 
         @Suppress("RemoveRedundantQualifierName") // or unresolved reference
         net.mamoe.mirai.event.events.MemberMuteEvent(this@NormalMemberImpl, durationSeconds, null).broadcastWithBot(bot)
+        this._muteTimestamp = currentTimeSeconds().toInt() + durationSeconds
     }
 
     override suspend fun unmute() {
@@ -156,6 +159,7 @@ internal class NormalMemberImpl constructor(
 
         @Suppress("RemoveRedundantQualifierName") // or unresolved reference
         net.mamoe.mirai.event.events.MemberUnmuteEvent(this@NormalMemberImpl, null).broadcastWithBot(bot)
+        this._muteTimestamp = 0
     }
 
     override suspend fun kick(message: String) {
@@ -177,6 +181,43 @@ internal class NormalMemberImpl constructor(
             this@NormalMemberImpl.cancel(CancellationException("Kicked by bot"))
             MemberLeaveEvent.Kick(this@NormalMemberImpl, null).broadcastWithBot(bot)
         }
+    }
+
+    override suspend fun modifyAdmin(operation: Boolean) {
+        checkBotPermissionHighest("modifyAdmin")
+
+        val origin = this@NormalMemberImpl.permission
+        val new = if (operation) {
+            MemberPermission.ADMINISTRATOR
+        } else {
+            MemberPermission.MEMBER
+        }
+
+        if (origin == new) return
+
+        bot.network.run {
+            val resp: TroopManagement.ModifyAdmin.Response = TroopManagement.ModifyAdmin(
+                client = bot.client,
+                member = this@NormalMemberImpl,
+                operation = operation
+            ).sendAndExpect()
+
+            check(resp.success) {
+                "Failed to modify admin, cause: ${resp.msg}"
+            }
+
+            this@NormalMemberImpl.permission = new
+
+            MemberPermissionChangeEvent(this@NormalMemberImpl, origin, new).broadcastWithBot(bot)
+        }
+    }
+}
+
+internal fun Member.checkBotPermissionHighest(operationName: String) {
+    check(group.botPermission == MemberPermission.OWNER) {
+        throw PermissionDeniedException(
+            "`$operationName` operation requires the OWNER permission, while bot has ${group.botPermission}"
+        )
     }
 }
 

@@ -26,7 +26,6 @@ import net.mamoe.mirai.internal.network.protocol.packet.login.Heartbeat
 import net.mamoe.mirai.internal.network.protocol.packet.login.StatSvc
 import net.mamoe.mirai.internal.network.protocol.packet.login.WtLogin
 import net.mamoe.mirai.internal.network.protocol.packet.summarycard.SummaryCard
-import net.mamoe.mirai.internal.network.readUShortLVByteArray
 import net.mamoe.mirai.internal.network.tryDecryptOrNull
 import net.mamoe.mirai.internal.utils.crypto.TEA
 import net.mamoe.mirai.internal.utils.crypto.adjustToPublicKey
@@ -127,6 +126,7 @@ internal object KnownPacketFactories {
         WtLogin.ExchangeEmp,
         StatSvc.Register,
         StatSvc.GetOnlineStatus,
+        StatSvc.SimpleGet,
         StatSvc.GetDevLoginInfo,
         MessageSvcPbGetMsg,
         MessageSvcPushForceOffline,
@@ -145,6 +145,7 @@ internal object KnownPacketFactories {
         TroopManagement.Mute,
         TroopManagement.GroupOperation,
         TroopManagement.GetTroopConfig,
+        TroopManagement.ModifyAdmin,
         //  TroopManagement.GetGroupInfo,
         TroopManagement.EditGroupNametag,
         TroopManagement.Kick,

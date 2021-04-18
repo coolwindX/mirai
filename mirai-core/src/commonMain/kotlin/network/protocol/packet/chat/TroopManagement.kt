@@ -25,11 +25,11 @@ import net.mamoe.mirai.internal.network.protocol.data.proto.*
 import net.mamoe.mirai.internal.network.protocol.packet.OutgoingPacket
 import net.mamoe.mirai.internal.network.protocol.packet.OutgoingPacketFactory
 import net.mamoe.mirai.internal.network.protocol.packet.buildOutgoingUniPacket
+import net.mamoe.mirai.internal.network.subAppId
 import net.mamoe.mirai.internal.utils.io.serialization.*
 import net.mamoe.mirai.utils.daysToSeconds
 
 internal class TroopManagement {
-
     internal object Mute : OutgoingPacketFactory<Mute.Response>("OidbSvc.0x570_8") {
         override suspend fun ByteReadPacket.decode(bot: QQAndroidBot): Response {
             //屁用没有
@@ -225,7 +225,7 @@ internal class TroopManagement {
             groupCode: Long,
             switch: Boolean
         ): OutgoingPacket = impl(client, groupCode) {
-            shutupTime = if (switch) 1 else 0
+            shutupTime = if (switch) 0x0FFFFFFF else 0
         }
 
         private inline fun impl(
@@ -371,6 +371,49 @@ internal class TroopManagement {
                             )
                         )
                     )
+                )
+            }
+        }
+
+    }
+
+    internal object ModifyAdmin : OutgoingPacketFactory<ModifyAdmin.Response>("OidbSvc.0x55c_1") {
+        data class Response(val success: Boolean, val msg: String) : Packet {
+            override fun toString(): String {
+                return "TroopManagement.ModifyAdmin.Response(success=${success}, msg=${msg})"
+            }
+        }
+
+        /**
+         * @param operation: true is add
+         */
+        operator fun invoke(
+            client: QQAndroidClient,
+            member: Member,
+            operation: Boolean
+        ): OutgoingPacket {
+            return buildOutgoingUniPacket(client) {
+                writeProtoBuf(
+                    OidbSso.OIDBSSOPkg.serializer(),
+                    OidbSso.OIDBSSOPkg(
+                        command = 1372,
+                        serviceType = 1,
+                        bodybuffer = buildPacket {
+                            writeInt(member.group.id.toInt())
+                            writeInt(member.id.toInt())
+                            writeByte(if (operation) 1 else 0)
+                        }.readBytes()
+                    )
+                )
+            }
+        }
+
+        override suspend fun ByteReadPacket.decode(bot: QQAndroidBot): ModifyAdmin.Response {
+            val stupidPacket = readProtoBuf(OidbSso.OIDBSSOPkg.serializer())
+            return stupidPacket.run {
+                ModifyAdmin.Response(
+                    this.result == 0,
+                    this.errorMsg
                 )
             }
         }

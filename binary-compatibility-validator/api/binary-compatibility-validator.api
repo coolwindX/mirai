@@ -186,6 +186,12 @@ public final class net/mamoe/mirai/Mirai {
 	public static final synthetic fun recallMessage (Lnet/mamoe/mirai/IMirai;Lnet/mamoe/mirai/Bot;Lnet/mamoe/mirai/message/data/MessageChain;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 }
 
+public final class net/mamoe/mirai/_MiraiInstance {
+	public static final field INSTANCE Lnet/mamoe/mirai/_MiraiInstance;
+	public static final fun get ()Lnet/mamoe/mirai/IMirai;
+	public static final fun set (Lnet/mamoe/mirai/IMirai;)V
+}
+
 public abstract interface class net/mamoe/mirai/contact/AnonymousMember : net/mamoe/mirai/contact/Member {
 	public abstract fun getAnonymousId ()Ljava/lang/String;
 	public fun nudge ()Lnet/mamoe/mirai/message/action/MemberNudge;
@@ -388,6 +394,8 @@ public abstract interface class net/mamoe/mirai/contact/Group : kotlinx/coroutin
 	public fun sendMessage (Ljava/lang/String;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public fun sendMessage (Lnet/mamoe/mirai/message/data/Message;)Lnet/mamoe/mirai/message/MessageReceipt;
 	public abstract fun sendMessage (Lnet/mamoe/mirai/message/data/Message;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static fun setEssenceMessage (Lnet/mamoe/mirai/contact/Group;Lnet/mamoe/mirai/message/data/MessageChain;)Z
+	public static fun setEssenceMessage (Lnet/mamoe/mirai/contact/Group;Lnet/mamoe/mirai/message/data/MessageChain;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public fun setEssenceMessage (Lnet/mamoe/mirai/message/data/MessageSource;)Z
 	public abstract fun setEssenceMessage (Lnet/mamoe/mirai/message/data/MessageSource;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public abstract fun setName (Ljava/lang/String;)V
@@ -472,9 +480,13 @@ public abstract interface class net/mamoe/mirai/contact/NormalMember : net/mamoe
 	public abstract fun getMuteTimeRemaining ()I
 	public abstract fun getNameCard ()Ljava/lang/String;
 	public abstract fun getSpecialTitle ()Ljava/lang/String;
+	public fun isMuted ()Z
 	public synthetic fun kick (Ljava/lang/String;)Lkotlin/Unit;
 	public fun kick (Ljava/lang/String;)V
 	public abstract fun kick (Ljava/lang/String;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public synthetic fun modifyAdmin (Z)Lkotlin/Unit;
+	public fun modifyAdmin (Z)V
+	public abstract fun modifyAdmin (ZLkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public fun nudge ()Lnet/mamoe/mirai/message/action/MemberNudge;
 	public synthetic fun nudge ()Lnet/mamoe/mirai/message/action/Nudge;
 	public synthetic fun nudge ()Lnet/mamoe/mirai/message/action/UserNudge;
@@ -4301,6 +4313,7 @@ public final class net/mamoe/mirai/message/data/ForwardMessageBuilder : java/uti
 	public fun subList (II)Ljava/util/List;
 	public fun toArray ()[Ljava/lang/Object;
 	public fun toArray ([Ljava/lang/Object;)[Ljava/lang/Object;
+	public final fun toRawForwardMessage ()Lnet/mamoe/mirai/message/data/RawForwardMessage;
 }
 
 public final class net/mamoe/mirai/message/data/ForwardMessageBuilder$BuilderNode : net/mamoe/mirai/message/data/ForwardMessage$INode {
@@ -4606,6 +4619,62 @@ public final class net/mamoe/mirai/message/data/MessageKeyKt {
 
 public abstract interface class net/mamoe/mirai/message/data/MessageMetadata : net/mamoe/mirai/message/data/SingleMessage {
 	public fun contentToString ()Ljava/lang/String;
+}
+
+public final class net/mamoe/mirai/message/data/MessageOrigin : net/mamoe/mirai/message/data/ConstrainSingle, net/mamoe/mirai/message/data/MessageMetadata {
+	public static final field Key Lnet/mamoe/mirai/message/data/MessageOrigin$Key;
+	public static final field SERIAL_NAME Ljava/lang/String;
+	public synthetic fun <init> (ILnet/mamoe/mirai/message/data/SingleMessage;Ljava/lang/String;Lnet/mamoe/mirai/message/data/MessageOriginKind;Lkotlinx/serialization/internal/SerializationConstructorMarker;)V
+	public fun <init> (Lnet/mamoe/mirai/message/data/SingleMessage;Ljava/lang/String;Lnet/mamoe/mirai/message/data/MessageOriginKind;)V
+	public fun contentToString ()Ljava/lang/String;
+	public fun equals (Ljava/lang/Object;)Z
+	public synthetic fun getKey ()Lnet/mamoe/mirai/message/data/MessageKey;
+	public fun getKey ()Lnet/mamoe/mirai/message/data/MessageOrigin$Key;
+	public final fun getKind ()Lnet/mamoe/mirai/message/data/MessageOriginKind;
+	public final fun getOrigin ()Lnet/mamoe/mirai/message/data/SingleMessage;
+	public final fun getResourceId ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+	public static final fun write$Self (Lnet/mamoe/mirai/message/data/MessageOrigin;Lkotlinx/serialization/encoding/CompositeEncoder;Lkotlinx/serialization/descriptors/SerialDescriptor;)V
+}
+
+public final class net/mamoe/mirai/message/data/MessageOrigin$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lnet/mamoe/mirai/message/data/MessageOrigin$$serializer;
+	public fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lnet/mamoe/mirai/message/data/MessageOrigin;
+	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lnet/mamoe/mirai/message/data/MessageOrigin;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class net/mamoe/mirai/message/data/MessageOrigin$Key : net/mamoe/mirai/message/data/AbstractMessageKey {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
+}
+
+public final class net/mamoe/mirai/message/data/MessageOriginKind : java/lang/Enum {
+	public static final field Companion Lnet/mamoe/mirai/message/data/MessageOriginKind$Companion;
+	public static final field FORWARD Lnet/mamoe/mirai/message/data/MessageOriginKind;
+	public static final field LONG Lnet/mamoe/mirai/message/data/MessageOriginKind;
+	public static final field MUSIC_SHARE Lnet/mamoe/mirai/message/data/MessageOriginKind;
+	public static fun valueOf (Ljava/lang/String;)Lnet/mamoe/mirai/message/data/MessageOriginKind;
+	public static fun values ()[Lnet/mamoe/mirai/message/data/MessageOriginKind;
+}
+
+public final class net/mamoe/mirai/message/data/MessageOriginKind$$serializer : kotlinx/serialization/internal/GeneratedSerializer {
+	public static final field INSTANCE Lnet/mamoe/mirai/message/data/MessageOriginKind$$serializer;
+	public fun childSerializers ()[Lkotlinx/serialization/KSerializer;
+	public synthetic fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Ljava/lang/Object;
+	public fun deserialize (Lkotlinx/serialization/encoding/Decoder;)Lnet/mamoe/mirai/message/data/MessageOriginKind;
+	public fun getDescriptor ()Lkotlinx/serialization/descriptors/SerialDescriptor;
+	public synthetic fun serialize (Lkotlinx/serialization/encoding/Encoder;Ljava/lang/Object;)V
+	public fun serialize (Lkotlinx/serialization/encoding/Encoder;Lnet/mamoe/mirai/message/data/MessageOriginKind;)V
+	public fun typeParametersSerializers ()[Lkotlinx/serialization/KSerializer;
+}
+
+public final class net/mamoe/mirai/message/data/MessageOriginKind$Companion {
+	public final fun serializer ()Lkotlinx/serialization/KSerializer;
 }
 
 public abstract class net/mamoe/mirai/message/data/MessageSource : net/mamoe/mirai/message/data/ConstrainSingle, net/mamoe/mirai/message/data/Message, net/mamoe/mirai/message/data/MessageMetadata {
@@ -5512,12 +5581,14 @@ public class net/mamoe/mirai/utils/BotConfiguration {
 	public final fun getHeartbeatTimeoutMillis ()J
 	public final fun getHighwayUploadCoroutineCount ()I
 	public final fun getJson ()Lkotlinx/serialization/json/Json;
+	public final fun getLoginCacheEnabled ()Z
 	public final fun getLoginSolver ()Lnet/mamoe/mirai/utils/LoginSolver;
 	public final fun getNetworkLoggerSupplier ()Lkotlin/jvm/functions/Function1;
 	public final fun getParentCoroutineContext ()Lkotlin/coroutines/CoroutineContext;
 	public final fun getProtocol ()Lnet/mamoe/mirai/utils/BotConfiguration$MiraiProtocol;
 	public final fun getReconnectPeriodMillis ()J
 	public final fun getReconnectionRetryTimes ()I
+	public final fun getStatHeartbeatPeriodMillis ()J
 	public final fun getWorkingDir ()Ljava/io/File;
 	public final synthetic fun inheritCoroutineContext (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public final fun isConvertLineSeparator ()Z
@@ -5554,12 +5625,14 @@ public class net/mamoe/mirai/utils/BotConfiguration {
 	public final fun setHeartbeatTimeoutMillis (J)V
 	public final fun setHighwayUploadCoroutineCount (I)V
 	public final fun setJson (Lkotlinx/serialization/json/Json;)V
+	public final fun setLoginCacheEnabled (Z)V
 	public final fun setLoginSolver (Lnet/mamoe/mirai/utils/LoginSolver;)V
 	public final fun setNetworkLoggerSupplier (Lkotlin/jvm/functions/Function1;)V
 	public final fun setParentCoroutineContext (Lkotlin/coroutines/CoroutineContext;)V
 	public final fun setProtocol (Lnet/mamoe/mirai/utils/BotConfiguration$MiraiProtocol;)V
 	public final fun setReconnectPeriodMillis (J)V
 	public final fun setReconnectionRetryTimes (I)V
+	public final fun setStatHeartbeatPeriodMillis (J)V
 	public final fun setWorkingDir (Ljava/io/File;)V
 }
 
@@ -6033,7 +6106,7 @@ public abstract interface class net/mamoe/mirai/utils/RemoteFile {
 	public fun mkdir ()Z
 	public abstract fun mkdir (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public fun moveTo (Ljava/lang/String;)Z
-	public abstract fun moveTo (Ljava/lang/String;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public fun moveTo (Ljava/lang/String;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public fun moveTo (Lnet/mamoe/mirai/utils/RemoteFile;)Z
 	public abstract fun moveTo (Lnet/mamoe/mirai/utils/RemoteFile;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public fun renameTo (Ljava/lang/String;)Z

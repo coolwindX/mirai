@@ -142,8 +142,15 @@ public open class BotConfiguration { // open for Java
     // Connection
     ///////////////////////////////////////////////////////////////////////////
 
-    /** 心跳周期. 过长会导致被服务器断开连接. */
+    /** 连接心跳包周期. 过长会导致被服务器断开连接. */
     public var heartbeatPeriodMillis: Long = 60.secondsToMillis
+
+    /**
+     * 状态心跳包周期. 过长会导致掉线.
+     * 该值会在登录时根据服务器下发的配置自动进行更新.
+     * @since 2.6
+     */
+    public var statHeartbeatPeriodMillis: Long = 300.secondsToMillis
 
     /**
      * 每次心跳时等待结果的时间.
@@ -477,6 +484,20 @@ public open class BotConfiguration { // open for Java
         contactListCache.friendListCacheEnabled = true
         contactListCache.groupMemberListCacheEnabled = true
     }
+
+    /**
+     * 登录缓存.
+     *
+     * 开始后在密码登录成功时会保存秘钥等信息, 在下次启动时通过这些信息登录, 而不提交密码.
+     * 可以减少验证码出现的频率.
+     *
+     * 秘钥信息会由密码加密保存. 如果秘钥过期, 则会进行普通密码登录.
+     *
+     * 默认 `true` (开启).
+     *
+     * @since 2.6
+     */
+    public var loginCacheEnabled: Boolean = true
 
     ///////////////////////////////////////////////////////////////////////////
     // Misc

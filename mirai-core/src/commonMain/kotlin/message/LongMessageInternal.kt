@@ -9,10 +9,13 @@
 
 package net.mamoe.mirai.internal.message
 
+import net.mamoe.mirai.Bot
 import net.mamoe.mirai.Mirai
-import net.mamoe.mirai.contact.Contact
+import net.mamoe.mirai.internal.MiraiImpl
 import net.mamoe.mirai.internal.asQQAndroidBot
+import net.mamoe.mirai.internal.network.protocol.data.proto.MsgTransmit
 import net.mamoe.mirai.message.data.*
+import net.mamoe.mirai.utils.cast
 import net.mamoe.mirai.utils.safeCast
 
 // internal runtime value, not serializable
@@ -20,11 +23,11 @@ internal data class LongMessageInternal internal constructor(override val conten
     AbstractServiceMessage(), RefinableMessage {
     override val serviceId: Int get() = 35
 
-    override suspend fun refine(contact: Contact, context: MessageChain): Message {
-        val bot = contact.bot.asQQAndroidBot()
+    override suspend fun refine(bot: Bot, context: MessageChain, refineContext: RefineContext): Message {
+        bot.asQQAndroidBot()
         val long = Mirai.downloadLongMessage(bot, resId)
 
-        return RichMessageOrigin(SimpleServiceMessage(serviceId, content), resId, RichMessageKind.LONG) + long
+        return MessageOrigin(SimpleServiceMessage(serviceId, content), resId, MessageOriginKind.LONG) + long
     }
 
     companion object Key :
@@ -33,12 +36,16 @@ internal data class LongMessageInternal internal constructor(override val conten
 
 // internal runtime value, not serializable
 @Suppress("RegExpRedundantEscape", "UnnecessaryVariable")
-internal data class ForwardMessageInternal(override val content: String, val resId: String) : AbstractServiceMessage(),
+internal data class ForwardMessageInternal(
+    override val content: String,
+    val resId: String?,
+    val fileName: String?,
+) : AbstractServiceMessage(),
     RefinableMessage {
     override val serviceId: Int get() = 35
 
-    override suspend fun refine(contact: Contact, context: MessageChain): Message {
-        val bot = contact.bot.asQQAndroidBot()
+    override suspend fun refine(bot: Bot, context: MessageChain, refineContext: RefineContext): Message {
+        bot.asQQAndroidBot()
 
         val msgXml = content.substringAfter("<msg", "")
         val xmlHead = msgXml.substringBefore("<item")
@@ -59,13 +66,34 @@ internal data class ForwardMessageInternal(override val content: String, val res
         val preview = titles
         val source = xmlFoot.findField("name")
 
-        return RichMessageOrigin(SimpleServiceMessage(serviceId, content), resId, RichMessageKind.FORWARD) + ForwardMessage(
+        if (fileName != null) { // nested
+            val transmits = refineContext.getNotNull(MsgTransmits)[fileName]
+                ?: return SimpleServiceMessage(serviceId, content) // Refine failed
+            return MessageOrigin(
+                SimpleServiceMessage(serviceId, content),
+                null, // Nested don't have resource id
+                MessageOriginKind.FORWARD
+            ) + ForwardMessage(
+                preview = preview,
+                title = title,
+                brief = brief,
+                source = source,
+                summary = summary.trim(),
+                nodeList = Mirai.cast<MiraiImpl>().run { transmits.toForwardMessageNodes(bot, refineContext) }
+            )
+        }
+
+        return MessageOrigin(
+            SimpleServiceMessage(serviceId, content),
+            resId,
+            MessageOriginKind.FORWARD
+        ) + ForwardMessage(
             preview = preview,
             title = title,
             brief = brief,
             source = source,
             summary = summary.trim(),
-            nodeList = Mirai.downloadForwardMessage(bot, resId)
+            nodeList = Mirai.downloadForwardMessage(bot, resId!!)
         )
     }
 
@@ -82,16 +110,8 @@ internal data class ForwardMessageInternal(override val content: String, val res
             return substringAfter("$type=\"", "")
                 .substringBefore("\"", "")
         }
+
+        val MsgTransmits = RefineContextKey<Map<String, MsgTransmit.PbMultiMsgNew>>("MsgTransmit")
     }
 }
 
-internal interface RefinableMessage : SingleMessage {
-
-    /**
-     * This message [RefinableMessage] will be replaced by return value of [refine]
-     */
-    suspend fun refine(
-        contact: Contact,
-        context: MessageChain,
-    ): Message?
-}
