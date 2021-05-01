@@ -47,8 +47,6 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
 import kotlin.coroutines.CoroutineContext
-import kotlin.time.minutes
-import kotlin.time.seconds
 
 @Suppress("MemberVisibilityCanBePrivate")
 internal class QQAndroidBotNetworkHandler(coroutineContext: CoroutineContext, bot: QQAndroidBot) : BotNetworkHandler() {
@@ -212,8 +210,8 @@ internal class QQAndroidBotNetworkHandler(coroutineContext: CoroutineContext, bo
                     while (isActive) {
                         bot.client.wLoginSigInfo.vKey.run {
                             //由过期时间最短的且不会被skey更换更新的vkey计算重新登录的时间
-                            val delay = (expireTime - creationTime).seconds - 5.minutes
-                            logger.info { "Scheduled refresh login session in ${delay.toHumanReadableString()}." }
+                            val delay = (expireTime - creationTime - 5).times(1000)
+                            logger.info { "Scheduled refresh login session in ${delay.millisToHumanReadableString()}." }
                             delay(delay)
                         }
                         runCatching {
@@ -227,8 +225,8 @@ internal class QQAndroidBotNetworkHandler(coroutineContext: CoroutineContext, bo
                 launch {
                     while (isActive) {
                         bot.client.wLoginSigInfo.sKey.run {
-                            val delay = (expireTime - creationTime).seconds - 5.minutes
-                            logger.info { "Scheduled key refresh in ${delay.toHumanReadableString()}." }
+                            val delay = (expireTime - creationTime - 5).times(1000)
+                            logger.info { "Scheduled key refresh in ${delay.millisToHumanReadableString()}." }
                             delay(delay)
                         }
                         runCatching {
@@ -373,7 +371,9 @@ internal class QQAndroidBotNetworkHandler(coroutineContext: CoroutineContext, bo
         //      StatSvc.Register.offline(bot.client).sendAndExpect()
         //  }.getOrElse { logger.warning(it) }
 
-        return StatSvc.Register.online(bot.client).sendAndExpect()
+        return StatSvc.Register.online(bot.client).sendAndExpect().also {
+            lastRegisterResp = it
+        }
     }
 
     private suspend fun updateOtherClientsList() {
@@ -398,6 +398,7 @@ internal class QQAndroidBotNetworkHandler(coroutineContext: CoroutineContext, bo
         ConcurrentLinkedQueue()
 
     private val contactUpdater: ContactUpdater by lazy { ContactUpdaterImpl(bot) }
+    private lateinit var lastRegisterResp: StatSvc.Register.Response
 
     override suspend fun init(): Unit = coroutineScope {
         check(bot.isActive) { "bot is dead therefore network can't init." }
@@ -409,8 +410,6 @@ internal class QQAndroidBotNetworkHandler(coroutineContext: CoroutineContext, bo
             pendingIncomingPackets = ConcurrentLinkedQueue()
             _pendingEnabled.value = true
         }
-
-        val registerResp = registerClientOnline()
 
         this@QQAndroidBotNetworkHandler.launch(
             CoroutineName("Awaiting ConfigPushSvc.PushReq"),
@@ -427,7 +426,7 @@ internal class QQAndroidBotNetworkHandler(coroutineContext: CoroutineContext, bo
             }
         }
 
-        contactUpdater.loadAll(registerResp.origin)
+        contactUpdater.loadAll(lastRegisterResp.origin)
 
         bot.firstLoginSucceed = true
         postInitActions()
