@@ -17,6 +17,7 @@ import net.mamoe.mirai.event.events.BotEvent
 import net.mamoe.mirai.internal.QQAndroidBot
 import net.mamoe.mirai.internal.network.*
 import net.mamoe.mirai.internal.network.DebuggingProperties.SHOW_TLV_MAP_ON_LOGIN_SUCCESS
+import net.mamoe.mirai.internal.network.handler.logger
 import net.mamoe.mirai.internal.network.protocol.packet.*
 import net.mamoe.mirai.internal.network.protocol.packet.login.wtlogin.WtLoginExt
 import net.mamoe.mirai.internal.network.protocol.packet.login.wtlogin.analysisTlv0x531
@@ -39,7 +40,7 @@ internal class WtLogin {
         object SubCommand7 {
             operator fun invoke(
                 client: QQAndroidClient
-            ): OutgoingPacket = buildLoginOutgoingPacket(client, bodyType = 2) { sequenceId ->
+            ) = buildLoginOutgoingPacket(client, bodyType = 2) { sequenceId ->
                 writeSsoPacket(
                     client,
                     client.subAppId,
@@ -69,7 +70,7 @@ internal class WtLogin {
         object SubCommand17 {
             operator fun invoke(
                 client: QQAndroidClient
-            ): OutgoingPacket = buildLoginOutgoingPacket(client, bodyType = 2) { sequenceId ->
+            ) = buildLoginOutgoingPacket(client, bodyType = 2) { sequenceId ->
                 writeSsoPacket(
                     client,
                     client.subAppId,
@@ -285,7 +286,7 @@ internal class WtLogin {
                     tlvMap119[0x528]?.let { client.t528 = it }
                     tlvMap119[0x530]?.let { client.t530 = it }
 
-                    tlvMap119[0x118]?.let { client.mainDisplayName = it }
+//                    tlvMap119[0x118]?.let { client.mainDisplayName = it }
                     tlvMap119[0x108]?.let { client.ksid = it }
                     tlvMap119[0x11a]?.read {
                         readShort().toInt() // faceId
@@ -332,7 +333,7 @@ internal class WtLogin {
                         // dont move into constructor, keep order
                         client.reserveUinInfo = ReserveUinInfo(imgType, imgFormat, imgUrl)
                     }
-                    client.qrPushSig = tlvMap119[0x317] ?: byteArrayOf()
+//                    client.qrPushSig = tlvMap119[0x317] ?: byteArrayOf()
 
 
                     var payToken: ByteArray? = null
@@ -433,6 +434,8 @@ internal class WtLogin {
                             } ?: encryptedDownloadSession
                             encryptA1 = tlvMap119.getOrDefault(0x106, encryptA1)
                             noPicSig = tlvMap119.getOrDefault(0x16a, noPicSig)
+                            psKeyMap.putAll(outPSKeyMap.orEmpty().toMutableMap())
+                            pt4TokenMap.putAll(outPt4TokenMap.orEmpty().toMutableMap())
                         }
                     } else {
                         var a1: ByteArray? = tlvMap119.getOrFail(0x106)

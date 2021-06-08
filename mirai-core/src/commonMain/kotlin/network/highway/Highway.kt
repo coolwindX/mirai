@@ -12,7 +12,6 @@ package net.mamoe.mirai.internal.network.highway
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
-import kotlinx.coroutines.channels.receiveOrNull
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.produceIn
@@ -21,10 +20,12 @@ import kotlinx.io.core.buildPacket
 import kotlinx.io.core.discardExact
 import kotlinx.io.core.writeFully
 import net.mamoe.mirai.internal.QQAndroidBot
-import net.mamoe.mirai.internal.network.BdhSession
+import net.mamoe.mirai.internal.asQQAndroidBot
 import net.mamoe.mirai.internal.network.QQAndroidClient
+import net.mamoe.mirai.internal.network.components.BdhSessionSyncer
+import net.mamoe.mirai.internal.network.context.BdhSession
+import net.mamoe.mirai.internal.network.handler.logger
 import net.mamoe.mirai.internal.network.protocol.data.proto.CSDataHighwayHead
-import net.mamoe.mirai.internal.network.protocol.packet.EMPTY_BYTE_ARRAY
 import net.mamoe.mirai.internal.network.subAppId
 import net.mamoe.mirai.internal.utils.PlatformSocket
 import net.mamoe.mirai.internal.utils.crypto.TEA
@@ -71,7 +72,7 @@ internal object Highway {
         localeId: Int = 2052,
     ): BdhUploadResponse {
         val bdhSession = kotlin.runCatching {
-            val deferred = bot.bdhSyncer.bdhSession
+            val deferred = bot.asQQAndroidBot().components[BdhSessionSyncer].bdhSession
             // no need to care about timeout. proceed by bot init
             @OptIn(ExperimentalCoroutinesApi::class)
             if (noBdhAwait) deferred.getCompleted() else deferred.await()
@@ -323,7 +324,7 @@ internal suspend fun ChunkedFlowSession<ByteReadPacket>.sendConcurrently(
         launch(CoroutineName("Worker $it")) {
             val socket = createConnection()
             while (isActive) {
-                val next = channel.tryReceive() ?: break // concurrent-safe receive
+                val next = channel.receiveCatching().getOrNull() ?: return@launch // concurrent-safe receive
                 val result = next.withUse {
                     socket.sendReceiveHighway(next, resultChecker)
                 }
@@ -333,15 +334,6 @@ internal suspend fun ChunkedFlowSession<ByteReadPacket>.sendConcurrently(
     }
 }
 
-private suspend fun <E : Any> ReceiveChannel<E>.tryReceive(): E? {
-    return kotlin.runCatching {
-        @OptIn(ExperimentalCoroutinesApi::class)
-        receiveOrNull() // this is experimental api
-    }.recoverCatching {
-        // in case binary changes
-        receive()
-    }.getOrNull()
-}
 
 private suspend fun HighwayProtocolChannel.sendReceiveHighway(
     it: ByteReadPacket,
@@ -388,13 +380,7 @@ internal fun highwayPacketSession(
                 version = 1,
                 uin = client.uin.toString(),
                 command = command,
-                seq = when (commandId) {
-                    2 -> client.nextHighwayDataTransSequenceIdForGroup()
-                    1 -> client.nextHighwayDataTransSequenceIdForFriend()
-                    27 -> client.nextHighwayDataTransSequenceIdForApplyUp()
-                    29 -> client.nextHighwayDataTransSequenceIdForGroup()
-                    else -> client.nextHighwayDataTransSequenceIdForGroup()
-                },
+                seq = client.nextHighwayDataTransSequenceId(),
                 retryTimes = 0,
                 appid = appId,
                 dataflag = dataFlag,
